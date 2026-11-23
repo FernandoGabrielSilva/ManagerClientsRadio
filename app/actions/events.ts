@@ -130,7 +130,7 @@ async function upsertAutoEvent(userId: string, key: { clientId: string; type: "c
   return true;
 }
 
-export async function ensureClientContactEventsForUser(userId: string, role?: string) {
+export async function ensureClientContactEventsForUser(userId: string, role?: string, opts?: { revalidate?: boolean }) {
   const where = role === "admin"
     ? { deletedAt: null, archivedAt: null }
     : { OR: [{ userId }, { vendorId: userId }], deletedAt: null, archivedAt: null };
@@ -172,6 +172,6 @@ export async function ensureClientContactEventsForUser(userId: string, role?: st
       })) created++;
     }
   }
-  revalidatePath("/calendar");
+  if (opts?.revalidate !== false) revalidatePath("/calendar");
   return { success: true, created, total: clients.length };
 }

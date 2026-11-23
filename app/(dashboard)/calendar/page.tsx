@@ -7,7 +7,7 @@ export default async function CalendarPage() {
   const session = await auth();
   const userId = session!.user!.id as string;
   const role = (session!.user as { role?: string }).role;
-  await ensureClientContactEventsForUser(userId, role);
+  await ensureClientContactEventsForUser(userId, role, { revalidate: false });
   await syncPendingGoogleEventsForUser(userId);
   const vendors = await prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
   const where = role === "admin" ? { deletedAt: null, archivedAt: null } : { OR: [{ userId }, { vendorId: userId }], deletedAt: null, archivedAt: null };
