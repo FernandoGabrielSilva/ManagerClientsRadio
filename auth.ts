@@ -16,6 +16,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
           scope:
@@ -75,6 +76,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             googleAccessToken: account.access_token ?? null,
             googleRefreshToken: account.refresh_token ?? null,
           },
+        });
+        await prisma.user.updateMany({
+          where: { id: user.id, OR: [{ googleCalendarId: null }, { googleCalendarId: "" }] },
+          data: { googleCalendarId: "primary" },
         });
       }
     },

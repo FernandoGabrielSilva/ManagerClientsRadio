@@ -396,6 +396,9 @@ export function SettingsView({
                     defaultValue={user.googleCalendarId ?? "primary"}
                     className="w-full bg-background border-input"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Use <code>primary</code> para o calendário principal da conta Google conectada.
+                  </p>
                 </div>
                 <div>
                   <Button type="submit">Salvar</Button>
