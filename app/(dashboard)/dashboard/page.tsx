@@ -2,45 +2,48 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { isContactOverdue, isContractExpiringSoon, isVideoDueToday, daysSinceContact, formatDate } from "@/lib/date-utils";
 import Link from "next/link";
-import { Video, Phone, FileText, Users, Bell, AlertTriangle } from "lucide-react";
+import { Video, Phone, FileText, Users, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
+import type { Client, Contract, Notification } from "@prisma/client";
+
+type ContractWithClient = Contract & { client: Client };
 
 export default async function DashboardPage() {
   const session = await auth();
   const userId = session!.user!.id as string;
   const role = (session!.user as any).role;
   const where = role === "admin" ? undefined : { OR: [{ userId }, { vendorId: userId }] };
-  const clients = await prisma.client.findMany({ where, orderBy: { name: "asc" } });
-  const contracts = await prisma.contract.findMany({
+  const clients: Client[] = await prisma.client.findMany({ where, orderBy: { name: "asc" } });
+  const contracts: ContractWithClient[] = await prisma.contract.findMany({
     where: role === "admin" ? { deletedAt: null, archivedAt: null } : { vendorId: userId, deletedAt: null, archivedAt: null },
     include: { client: true },
   });
-  const notifications = await prisma.notification.findMany({ where: { userId, read: false }, orderBy: { createdAt: "desc" }, take: 6 });
+  const notifications: Notification[] = await prisma.notification.findMany({ where: { userId, read: false }, orderBy: { createdAt: "desc" }, take: 6 });
 
-  const videoToday = clients.filter((c) => isVideoDueToday(c.videoWeekday));
-  const contactOverdue = clients.filter((c) => isContactOverdue(c.lastContactAt, c.contactFrequencyDays));
-  const expiring = clients.filter((c) => isContractExpiringSoon(c.contractEnd, 30));
-  const activeCount = clients.filter((c) => c.contractStatus === "active").length;
-  const adChange = clients.filter((c) => c.needsAdChange);
+  const videoToday = clients.filter((c: Client) => isVideoDueToday(c.videoWeekday));
+  const contactOverdue = clients.filter((c: Client) => isContactOverdue(c.lastContactAt, c.contactFrequencyDays));
+  const expiring = clients.filter((c: Client) => isContractExpiringSoon(c.contractEnd, 30));
+  const activeCount = clients.filter((c: Client) => c.contractStatus === "active").length;
+  const adChange = clients.filter((c: Client) => c.needsAdChange);
 
-  const clientStatusCounts = clients.reduce<Record<string, number>>((acc, c) => {
+  const clientStatusCounts = clients.reduce<Record<string, number>>((acc: Record<string, number>, c: Client) => {
     const key = c.commercialStatus ?? c.contractStatus ?? "Sem status";
     acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
-  const contractStatusCounts = contracts.reduce<Record<string, number>>((acc, c) => {
+  const contractStatusCounts = contracts.reduce<Record<string, number>>((acc: Record<string, number>, c: ContractWithClient) => {
     const days = Math.floor((new Date(c.endDate).getTime() - Date.now()) / 86400000);
     const key = days < 0 ? "Vencido" : days <= 15 ? "Perto de Vencer" : "Ativo";
     acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
-  const mediaTypeCounts = contracts.reduce<Record<string, number>>((acc, c) => {
+  const mediaTypeCounts = contracts.reduce<Record<string, number>>((acc: Record<string, number>, c: ContractWithClient) => {
     const key = c.mediaType ?? "outro";
     acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
-  const totalValue = contracts.reduce((s, c) => s + (c.value ?? 0), 0);
+  const totalValue = contracts.reduce((s: number, c: ContractWithClient) => s + (c.value ?? 0), 0);
 
   const stats = [
     { label: "Vídeo hoje", value: videoToday.length, icon: Video, tone: "text-primary" },
@@ -85,19 +88,19 @@ export default async function DashboardPage() {
                 <div className="p-8 text-sm text-muted-foreground text-center">Nenhuma ação pendente.</div>
               ) : (
                 <div className="max-h-80 overflow-auto divide-y">
-                  {videoToday.map((c) => (
+                  {videoToday.map((c: Client) => (
                     <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
                       <span className="flex items-center gap-2"><Video className="h-4 w-4 text-primary" /> Enviar vídeo para <span className="font-medium">{c.name}</span></span>
                       <span className="text-xs text-muted-foreground">Hoje</span>
                     </Link>
                   ))}
-                  {contactOverdue.map((c) => (
+                  {contactOverdue.map((c: Client) => (
                     <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
                       <span className="flex items-center gap-2"><Phone className="h-4 w-4 text-destructive" /> Contatar <span className="font-medium">{c.name}</span></span>
                       <span className="text-xs text-muted-foreground">há {daysSinceContact(c.lastContactAt)} dias</span>
                     </Link>
                   ))}
-                  {adChange.map((c) => (
+                  {adChange.map((c: Client) => (
                     <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
                       <span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Sugerir mudança de anúncio <span className="font-medium">{c.name}</span></span>
                       <span className="text-xs text-muted-foreground">pendente</span>
@@ -117,7 +120,7 @@ export default async function DashboardPage() {
                 <div className="p-8 text-sm text-muted-foreground text-center">Sem notificações.</div>
               ) : (
                 <div className="max-h-80 overflow-auto divide-y">
-                  {notifications.map((n) => (
+                  {notifications.map((n: Notification) => (
                     <div key={n.id} className="px-5 py-3 text-sm">
                       <div className="font-medium">{n.title}</div>
                       <div className="text-xs text-muted-foreground">{n.message}</div>
@@ -136,8 +139,8 @@ export default async function DashboardPage() {
           { title: "Contratos por status", data: contractStatusCounts, colorOffset: 2 },
           { title: "Contratos por tipo", data: mediaTypeCounts, colorOffset: 4 },
         ].map((chart) => {
-          const entries = Object.entries(chart.data);
-          const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
+          const entries = Object.entries(chart.data) as [string, number][];
+          const total = entries.reduce((s: number, [, v]) => s + v, 0) || 1;
           const colors = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7", "#ec4899"];
           let angle = 0;
           const slices = entries.map(([label, value], i) => {
@@ -196,7 +199,7 @@ export default async function DashboardPage() {
           <Card>
             <CardContent className="p-0">
               <div className="divide-y">
-                {expiring.map((c) => (
+                {expiring.map((c: Client) => (
                   <div key={c.id} className="flex justify-between px-5 py-3 text-sm">
                     <span className="font-medium">{c.name}</span>
                     <span className="text-muted-foreground tabular-nums">{formatDate(c.contractEnd)}</span>

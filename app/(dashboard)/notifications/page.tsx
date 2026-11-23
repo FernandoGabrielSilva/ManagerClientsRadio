@@ -6,11 +6,12 @@ import { Bell as BellIcon } from "lucide-react";
 import { markNotificationReadAction, markAllNotificationsReadAction } from "@/app/actions/notifications";
 import { formatDate } from "@/lib/date-utils";
 import Link from "next/link";
+import type { Notification } from "@prisma/client";
 
 export default async function NotificationsPage() {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const notifs = await prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 50 });
+  const notifs: Notification[] = await prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 50 });
 
   return (
     <div className="space-y-4">
@@ -30,7 +31,7 @@ export default async function NotificationsPage() {
       </div>
       <div className="space-y-2">
         {notifs.length === 0 && <p className="text-muted-foreground">Sem notificações.</p>}
-        {notifs.map((n) => (
+        {notifs.map((n: Notification) => (
           <Card key={n.id} className={n.read ? "opacity-60" : ""}>
             <CardContent className="p-4 flex items-center justify-between">
               <div>
