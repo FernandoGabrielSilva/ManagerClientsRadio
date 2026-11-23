@@ -113,43 +113,64 @@ export async function ensureClientContactEventsAction() {
   return ensureClientContactEventsForUser(userId, role);
 }
 
+async function upsertAutoEvent(userId: string, key: { clientId: string; type: "contact" | "contract_expiry"; start: Date; titlePrefix: string }, data: { title: string; description: string; start: Date; end: Date }) {
+  const existing = await prisma.event.findFirst({
+    where: { userId, clientId: key.clientId, type: key.type, start: key.start, title: { startsWith: key.titlePrefix } },
+  });
+  if (existing) {
+    if (existing.description !== data.description || existing.title !== data.title || existing.end?.getTime() !== data.end.getTime()) {
+      await prisma.event.update({ where: { id: existing.id }, data: { title: data.title, description: data.description, end: data.end } });
+    }
+    return false;
+  }
+  const event = await prisma.event.create({
+    data: { userId, clientId: key.clientId, type: key.type, title: data.title, description: data.description, start: data.start, end: data.end, allDay: true },
+  });
+  await pushEventToGoogle(userId, event);
+  return true;
+}
+
 export async function ensureClientContactEventsForUser(userId: string, role?: string) {
   const where = role === "admin"
     ? { deletedAt: null, archivedAt: null }
     : { OR: [{ userId }, { vendorId: userId }], deletedAt: null, archivedAt: null };
   const clients = await prisma.client.findMany({
     where,
-    select: { id: true, name: true, lastContactAt: true, contactFrequencyDays: true },
+    select: { id: true, name: true, lastContactAt: true, contactFrequencyDays: true, contracts: { where: { deletedAt: null, archivedAt: null }, select: { id: true, number: true, endDate: true } } },
   });
   let created = 0;
   for (const c of clients) {
-    const next = nextContactDate(c.lastContactAt ? new Date(c.lastContactAt) : null, c.contactFrequencyDays ?? 14);
-    const start = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth(), next.getUTCDate()));
-    const existing = await prisma.event.findFirst({
-      where: { userId, clientId: c.id, type: "contact", start },
-    });
-    if (existing) {
-      const desc = `Próximo contato com ${c.name} em ${formatDate(start)}.`;
-      if (existing.description !== desc || existing.title !== `Contato: ${c.name}`) {
-        await prisma.event.update({ where: { id: existing.id }, data: { title: `Contato: ${c.name}`, description: desc } });
-      }
-      continue;
+    if (c.lastContactAt) {
+      const last = new Date(c.lastContactAt);
+      const start = new Date(Date.UTC(last.getUTCFullYear(), last.getUTCMonth(), last.getUTCDate()));
+      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 1));
+      if (await upsertAutoEvent(userId, { clientId: c.id, type: "contact", start, titlePrefix: "Último contato:" }, {
+        title: `Último contato: ${c.name}`,
+        description: `Último contato com ${c.name} em ${formatDate(start)}.`,
+        start, end,
+      })) created++;
     }
-    const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 1));
-    const event = await prisma.event.create({
-      data: {
-        userId,
-        clientId: c.id,
-        title: `Contato: ${c.name}`,
-        description: `Próximo contato com ${c.name} em ${formatDate(start)}.`,
-        start,
-        end,
-        allDay: true,
-        type: "contact",
-      },
-    });
-    await pushEventToGoogle(userId, event);
-    created++;
+
+    const next = nextContactDate(c.lastContactAt ? new Date(c.lastContactAt) : null, c.contactFrequencyDays ?? 14);
+    const nextStart = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth(), next.getUTCDate()));
+    const nextEnd = new Date(Date.UTC(nextStart.getUTCFullYear(), nextStart.getUTCMonth(), nextStart.getUTCDate() + 1));
+    if (await upsertAutoEvent(userId, { clientId: c.id, type: "contact", start: nextStart, titlePrefix: "Próximo contato:" }, {
+      title: `Próximo contato: ${c.name}`,
+      description: `Próximo contato com ${c.name} em ${formatDate(nextStart)}.`,
+      start: nextStart, end: nextEnd,
+    })) created++;
+
+    for (const ct of c.contracts) {
+      const d = new Date(ct.endDate);
+      const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 1));
+      const label = ct.number ? `Contrato ${ct.number}` : "Contrato";
+      if (await upsertAutoEvent(userId, { clientId: c.id, type: "contract_expiry", start, titlePrefix: `Vencimento ${label}:` }, {
+        title: `Vencimento ${label}: ${c.name}`,
+        description: `Vencimento do ${label.toLowerCase()} de ${c.name} em ${formatDate(start)}.`,
+        start, end,
+      })) created++;
+    }
   }
   revalidatePath("/calendar");
   return { success: true, created, total: clients.length };
