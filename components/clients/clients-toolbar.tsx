@@ -14,6 +14,36 @@ import { Plus, Users } from "lucide-react";
 export function ClientsToolbar({ clients, vendors, view = "active" }: { clients: any[]; vendors?: { id: string; name: string | null }[]; view?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const exportHeaders = [
+    "Cliente / anunciante",
+    "Responsável",
+    "Contato / decisor",
+    "WhatsApp",
+    "Situação comercial",
+    "Valor proposto (R$)",
+    "Último contato",
+    "Tipo de contato",
+    "Próxima ação",
+    "Data próxima ação",
+    "Histórico / observações",
+    "Conferência de datas",
+    "Dias Vídeo",
+  ];
+  const exportRows = clients.map((c) => [
+    c.name ?? "",
+    c.responsible ?? "",
+    c.contactName ?? "",
+    c.phone ?? "",
+    c.commercialStatus ?? c.contractStatus ?? "",
+    c.contractValue ?? "",
+    c.lastContactAt ? new Date(c.lastContactAt).toLocaleDateString("pt-BR") : "",
+    c.contactType ?? "",
+    c.nextAction ?? "",
+    c.nextActionDate ? new Date(c.nextActionDate).toLocaleDateString("pt-BR") : "",
+    c.notes ?? "",
+    c.dateConference ?? "",
+    c.videoWeekday ?? "",
+  ]);
   const exportData = clients.map((c) => ({
     "Cliente / anunciante": c.name,
     "Responsável": c.responsible,
@@ -58,7 +88,15 @@ export function ClientsToolbar({ clients, vendors, view = "active" }: { clients:
           ))}
         </div>
       <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-        <ExportButton data={exportData} filename="clientes.xlsx" />
+        <ExportButton
+          styled
+          filename="clientes.xlsx"
+          sheetName="Clientes"
+          headers={exportHeaders}
+          rows={exportRows}
+          columnWidths={[28, 22, 22, 18, 22, 14, 14, 16, 22, 16, 50, 18, 14]}
+          data={exportData}
+        />
         <ExportPdfButton data={exportData} filename="clientes.pdf" columns={Object.keys(exportData[0] ?? {}).map((k) => ({ header: k, dataKey: k }))} />
         <ImportButton onImport={handleImport} />
         <Dialog open={open} onOpenChange={setOpen}>

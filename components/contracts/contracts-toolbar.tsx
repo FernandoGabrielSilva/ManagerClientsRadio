@@ -10,6 +10,28 @@ import { Plus, FileText as FileTextIcon } from "lucide-react";
 
 export function ContractsToolbar({ contracts, view = "active" }: { contracts: any[]; view?: string }) {
   const router = useRouter();
+  const exportHeaders = [
+    "Número",
+    "Cliente",
+    "Tipo",
+    "Início",
+    "Término",
+    "Inserções",
+    "Horários",
+    "Valor",
+    "Status",
+  ];
+  const exportRows = contracts.map((c) => [
+    c.number ?? "",
+    c.client?.name ?? "",
+    c.mediaType ?? "",
+    c.startDate ? new Date(c.startDate).toLocaleDateString("pt-BR") : "",
+    c.endDate ? new Date(c.endDate).toLocaleDateString("pt-BR") : "",
+    c.insertions ?? "",
+    c.timeSlots ?? "",
+    c.value ?? "",
+    c.status ?? "",
+  ]);
   const exportData = contracts.map((c) => ({
     Número: c.number,
     Cliente: c.client?.name,
@@ -50,7 +72,15 @@ export function ContractsToolbar({ contracts, view = "active" }: { contracts: an
           ))}
         </div>
       <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-        <ExportButton data={exportData} filename="contratos.xlsx" />
+        <ExportButton
+          styled
+          filename="contratos.xlsx"
+          sheetName="Contratos"
+          headers={exportHeaders}
+          rows={exportRows}
+          columnWidths={[18, 28, 18, 14, 14, 12, 24, 14, 16]}
+          data={exportData}
+        />
         <ExportPdfButton data={exportData} filename="contratos.pdf" columns={Object.keys(exportData[0] ?? {}).map((k) => ({ header: k, dataKey: k }))} />
         <ImportButton onImport={handleImport} />
         <Link href="/contracts/new" className="w-full sm:w-auto"><Button className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Novo contrato</Button></Link>

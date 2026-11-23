@@ -4,10 +4,33 @@ import { useRef } from "react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Upload, Download } from "lucide-react";
+import { exportStyledXlsx } from "@/lib/export-excel";
 
-export function ExportButton({ data, filename }: { data: any[]; filename: string }) {
+type ExportButtonProps =
+  | { data: any[]; filename: string; sheetName?: string }
+  | {
+      data: any[];
+      filename: string;
+      styled: true;
+      sheetName: string;
+      headers: string[];
+      rows: (string | number | null | undefined)[][];
+      columnWidths?: number[];
+    };
+
+export function ExportButton(props: ExportButtonProps) {
   function handle() {
-    const ws = XLSX.utils.json_to_sheet(data);
+    if ("styled" in props && props.styled) {
+      exportStyledXlsx({
+        filename: props.filename,
+        sheetName: props.sheetName,
+        headers: props.headers,
+        rows: props.rows,
+        columnWidths: props.columnWidths,
+      });
+      return;
+    }
+    const ws = XLSX.utils.json_to_sheet(props.data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Dados");
     const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -15,7 +38,7 @@ export function ExportButton({ data, filename }: { data: any[]; filename: string
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = filename;
+    a.download = filenameSafe(props.filename);
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -24,6 +47,10 @@ export function ExportButton({ data, filename }: { data: any[]; filename: string
       <Download className="h-4 w-4 mr-2" /> Exportar Excel
     </Button>
   );
+}
+
+function filenameSafe(name: string) {
+  return name || "export.xlsx";
 }
 
 export function ImportButton({ onImport }: { onImport: (rows: any[]) => Promise<void> }) {
