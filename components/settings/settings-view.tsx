@@ -24,6 +24,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { THEME_PRESETS } from "@/lib/color-utils";
 import { applyThemeColor } from "@/lib/color-utils";
 import {
@@ -64,6 +72,8 @@ export function SettingsView({
     user.themeMode === "system" ? "system" : user.themeMode === "dark" ? "dark" : "light",
   );
   const [tab, setTab] = useState("profile");
+  const [confirmPushAll, setConfirmPushAll] = useState(false);
+  const [pushingAll, setPushingAll] = useState(false);
 
   async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -152,16 +162,21 @@ export function SettingsView({
   }
 
   async function pushAllToGoogle() {
-    if (!confirm("Enviar todos os eventos locais ainda não sincronizados para o Google Agenda?")) return;
-    const res = await pushAllLocalEventsToGoogleAction();
-    if (res.error) {
-      toast.add({ title: "Erro", description: res.error });
-      return;
+    setPushingAll(true);
+    try {
+      const res = await pushAllLocalEventsToGoogleAction();
+      if (res.error) {
+        toast.add({ title: "Erro", description: res.error });
+        return;
+      }
+      toast.add({
+        title: "Exportação concluída",
+        description: `${res.pushed ?? 0} de ${res.total ?? 0} enviado(s)${res.errors?.length ? `, ${res.errors.length} erro(s)` : ""}`,
+      });
+      setConfirmPushAll(false);
+    } finally {
+      setPushingAll(false);
     }
-    toast.add({
-      title: "Exportação concluída",
-      description: `${res.pushed ?? 0} de ${res.total ?? 0} enviado(s)${res.errors?.length ? `, ${res.errors.length} erro(s)` : ""}`,
-    });
   }
 
   const tabs = [
@@ -382,7 +397,7 @@ export function SettingsView({
                     <Button variant="outline" onClick={syncGoogle}>
                       Sincronizar agora
                     </Button>
-                    <Button variant="outline" onClick={pushAllToGoogle}>
+                    <Button variant="outline" onClick={() => setConfirmPushAll(true)}>
                       Enviar todos eventos ao Google
                     </Button>
                     <Button
@@ -491,6 +506,21 @@ export function SettingsView({
           )}
         </div>
       </div>
+
+      <Dialog open={confirmPushAll} onOpenChange={setConfirmPushAll}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar eventos ao Google Agenda</DialogTitle>
+            <DialogDescription>
+              Todos os eventos locais que ainda não foram sincronizados serão criados no Google Agenda conectado.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmPushAll(false)} disabled={pushingAll}>Cancelar</Button>
+            <Button onClick={pushAllToGoogle} disabled={pushingAll}>{pushingAll ? "Enviando..." : "Enviar eventos"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
