@@ -1,0 +1,450 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Settings as SettingsIcon,
+  User,
+  Lock,
+  Palette,
+  Plug,
+  Bell,
+  Users as UsersIcon,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { THEME_PRESETS } from "@/lib/color-utils";
+import { applyThemeColor } from "@/lib/color-utils";
+import {
+  updateProfileAction,
+  changePasswordAction,
+  updateThemeAction,
+  updateNotificationPrefsAction,
+  disconnectGoogleAction,
+  updateUserRoleAction,
+} from "@/app/actions/settings";
+
+export function SettingsView({
+  user,
+  users,
+}: {
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+    themeColor: string;
+    themeMode: string;
+    googleCalendarConnected: boolean;
+    notificationsEnabled: boolean;
+    autoCreateEvents: boolean;
+    defaultContactFrequency: number;
+    googleCalendarId: string | null;
+    role?: string;
+  };
+  users?: { id: string; name: string | null; email: string; role: string }[];
+}) {
+  const router = useRouter();
+  const [color, setColor] = useState(user.themeColor);
+  const [mode, setMode] = useState<"light" | "dark" | "system">(
+    user.themeMode === "system" ? "system" : user.themeMode === "dark" ? "dark" : "light",
+  );
+  const [tab, setTab] = useState("profile");
+
+  async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const res = await updateProfileAction({
+      name: fd.get("name") as string,
+      email: fd.get("email") as string,
+      image: (fd.get("image") as string) || null,
+    });
+    if (res?.error) toast.add({ title: "Erro", description: res.error });
+    else {
+      toast.add({ title: "Perfil atualizado" });
+      router.refresh();
+    }
+  }
+
+  async function savePassword(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const res = await changePasswordAction({
+      currentPassword: fd.get("current") as string,
+      newPassword: fd.get("new") as string,
+    });
+    if (res?.error) toast.add({ title: "Erro", description: res.error });
+    else toast.add({ title: "Senha alterada" });
+  }
+
+  async function saveTheme() {
+    await updateThemeAction({ themeColor: color, themeMode: mode });
+    const preset = THEME_PRESETS.find((p) => p.color === color);
+    document.documentElement.classList.forEach((c) => {
+      if (c.startsWith("theme-")) document.documentElement.classList.remove(c);
+    });
+    if (preset) {
+      const cls =
+        preset.name === "Padrão"
+          ? "theme-default"
+          : "theme-" + preset.name.toLowerCase().replace(/[^a-z]/g, "");
+      document.documentElement.classList.add(cls);
+    } else {
+      applyThemeColor(color);
+    }
+    if (mode === "system") {
+      if (window.matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.classList.add("dark");
+      else document.documentElement.classList.remove("dark");
+    } else if (mode === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("themeColor", color);
+    localStorage.setItem("themeMode", mode);
+    router.refresh();
+    toast.add({ title: "Tema salvo" });
+  }
+
+  async function saveNotifs(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    await updateNotificationPrefsAction({
+      notificationsEnabled: fd.get("notificationsEnabled") === "on",
+      autoCreateEvents: fd.get("autoCreateEvents") === "on",
+      defaultContactFrequency: Number(fd.get("freq") || 14),
+      googleCalendarId: (fd.get("calId") as string) || null,
+    });
+    toast.add({ title: "Preferências salvas" });
+  }
+
+  async function syncGoogle() {
+    const res = await fetch("/api/google/sync", { method: "POST" });
+    const j = await res.json();
+    toast.add({
+      title: "Sincronizado",
+      description: `${j.created ?? 0} eventos`,
+    });
+  }
+
+  const tabs = [
+    { key: "profile", label: "Perfil", icon: User },
+    { key: "password", label: "Senha", icon: Lock },
+    { key: "theme", label: "Tema", icon: Palette },
+    { key: "integrations", label: "Integrações", icon: Plug },
+    { key: "notifications", label: "Notificações", icon: Bell },
+    ...(user.role === "admin"
+      ? [{ key: "users", label: "Usuários", icon: UsersIcon }]
+      : []),
+  ];
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg">
+          <SettingsIcon className="h-5 w-5" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
+          <p className="text-sm text-muted-foreground">
+            Gerencie seu perfil, tema e integrações.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-8">
+        <aside className="w-full md:w-64 flex flex-col gap-2">
+          {tabs.map((t) => {
+            const Icon = t.icon;
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm transition-all text-left ${
+                  active
+                    ? "bg-primary/10 text-primary font-medium shadow-sm"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" /> {t.label}
+              </button>
+            );
+          })}
+        </aside>
+
+        <div className="flex-1 bg-card p-8 rounded-xl border border-border">
+          {tab === "profile" && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">Editar perfil</h2>
+              <form
+                onSubmit={saveProfile}
+                className="flex flex-col gap-4 max-w-xl"
+              >
+                <div className="space-y-2">
+                  <Label>Nome</Label>
+                  <Input
+                    name="name"
+                    defaultValue={user.name ?? ""}
+                    className="w-full bg-background border-input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input
+                    name="email"
+                    type="email"
+                    defaultValue={user.email}
+                    className="w-full bg-background border-input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Foto (URL)</Label>
+                  <Input
+                    name="image"
+                    defaultValue={user.image ?? ""}
+                    className="w-full bg-background border-input"
+                  />
+                </div>
+                <div>
+                  <Button type="submit">Salvar</Button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {tab === "password" && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">Trocar senha</h2>
+              <form
+                onSubmit={savePassword}
+                className="flex flex-col gap-4 max-w-md"
+              >
+                <div className="space-y-2">
+                  <Label>Senha atual</Label>
+                  <Input
+                    name="current"
+                    type="password"
+                    className="w-full bg-background border-input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Nova senha</Label>
+                  <Input
+                    name="new"
+                    type="password"
+                    className="w-full bg-background border-input"
+                  />
+                </div>
+                <div>
+                  <Button type="submit">Alterar</Button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {tab === "theme" && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">Tema</h2>
+              <div className="space-y-6 max-w-xl">
+                <div>
+                  <Label className="mb-2 block">Presets</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {THEME_PRESETS.map((p) => (
+                      <button
+                        key={p.name}
+                        onClick={() => {
+                          setColor(p.color);
+                          applyThemeColor(p.color);
+                        }}
+                        className="flex flex-col items-center gap-1"
+                      >
+                        <span
+                          className="h-8 w-8 rounded-full border"
+                          style={{ background: p.color }}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {p.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Cor customizada</Label>
+                  <input
+                    type="color"
+                    value={color}
+                    onChange={(e) => {
+                      setColor(e.target.value);
+                      document.documentElement.classList.forEach((c) => {
+                        if (c.startsWith("theme-"))
+                          document.documentElement.classList.remove(c);
+                      });
+                      applyThemeColor(e.target.value);
+                    }}
+                    className="h-10 w-20 rounded border"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Modo</Label>
+                  <Select
+                    value={mode}
+                    onValueChange={(v: string | null) =>
+                      setMode(v === "system" ? "system" : v === "dark" ? "dark" : "light")
+                    }
+                  >
+                    <SelectTrigger className="w-40 bg-background border-input">
+                      <SelectValue>{(v: any) => v === "system" ? "Sistema (automático)" : v === "dark" ? "Escuro" : "Claro"}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="system">Sistema (automático)</SelectItem>
+                      <SelectItem value="light">Claro</SelectItem>
+                      <SelectItem value="dark">Escuro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={saveTheme}>Salvar tema</Button>
+              </div>
+            </div>
+          )}
+
+          {tab === "integrations" && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">Google Calendar</h2>
+              <div className="space-y-3 max-w-xl">
+                <p className="text-sm">
+                  Status:{" "}
+                  {user.googleCalendarConnected ? "Conectado" : "Desconectado"}
+                </p>
+                {!user.googleCalendarConnected ? (
+                  <Button
+                    onClick={() =>
+                      (window.location.href =
+                        "/api/auth/signin/google?callbackUrl=/settings")
+                    }
+                  >
+                    Conectar Google
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={syncGoogle}>
+                      Sincronizar agora
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={async () => {
+                        await disconnectGoogleAction();
+                        router.refresh();
+                      }}
+                    >
+                      Desconectar
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === "notifications" && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">
+                Preferências de notificação
+              </h2>
+              <form
+                onSubmit={saveNotifs}
+                className="flex flex-col gap-4 max-w-md"
+              >
+                <div className="flex items-center justify-between">
+                  <Label>Notificações ativadas</Label>
+                  <Switch
+                    name="notificationsEnabled"
+                    defaultChecked={user.notificationsEnabled}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Criar eventos automaticamente</Label>
+                  <Switch
+                    name="autoCreateEvents"
+                    defaultChecked={user.autoCreateEvents}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Frequência padrão de contato (dias)</Label>
+                  <Input
+                    name="freq"
+                    type="number"
+                    defaultValue={user.defaultContactFrequency}
+                    className="w-full bg-background border-input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Google Calendar ID</Label>
+                  <Input
+                    name="calId"
+                    defaultValue={user.googleCalendarId ?? "primary"}
+                    className="w-full bg-background border-input"
+                  />
+                </div>
+                <div>
+                  <Button type="submit">Salvar</Button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {tab === "users" && user.role === "admin" && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">Usuários e permissões</h2>
+              <div className="space-y-2 max-w-2xl">
+                {(users ?? []).map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between border rounded-md p-3"
+                  >
+                    <div>
+                      <div className="font-medium text-sm">
+                        {u.name ?? u.email}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {u.email}
+                      </div>
+                    </div>
+                    <Select
+                      defaultValue={u.role}
+                      onValueChange={(v: string | null) =>
+                        updateUserRoleAction(
+                          u.id,
+                          (v ?? "vendor") as "admin" | "vendor",
+                        ).then(() => router.refresh())
+                      }
+                    >
+                      <SelectTrigger className="w-32 bg-background border-input">
+                        <SelectValue>{(v: any) => v === "admin" ? "Admin" : "Vendedor"}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="vendor">Vendedor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

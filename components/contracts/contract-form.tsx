@@ -1,0 +1,101 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { contractSchema } from "@/lib/validators";
+import { createContractAction } from "@/app/actions/contracts";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { z } from "zod";
+
+type Values = z.infer<typeof contractSchema>;
+
+export function ContractForm({ clients, vendors }: { clients: { id: string; name: string }[]; vendors?: { id: string; name: string | null }[] }) {
+  const router = useRouter();
+  const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<Values>({
+    resolver: zodResolver(contractSchema),
+    defaultValues: { mediaType: "spot", startDate: new Date().toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10) },
+  });
+
+  async function onSubmit(values: Values) {
+    const res = await createContractAction(values);
+    if (res?.error) { toast.add({ title: "Erro", description: res.error }); return; }
+    router.push("/contracts");
+    router.refresh();
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-3xl">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Número do contrato</Label>
+          <Input {...register("number")} />
+        </div>
+        <div className="space-y-2">
+          <Label>Cliente *</Label>
+          <Select value={watch("clientId")} onValueChange={(v: string | null) => setValue("clientId", v ?? "")}>
+            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <SelectContent>
+              {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {errors.clientId && <p className="text-sm text-destructive">{errors.clientId.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label>Vendedor</Label>
+          <Select value={watch("vendorId") ?? ""} onValueChange={(v: string | null) => setValue("vendorId", v)}>
+            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <SelectContent>
+              {(vendors ?? []).map((v) => <SelectItem key={v.id} value={v.id}>{v.name ?? v.id}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Tipo de mídia</Label>
+          <Select value={watch("mediaType")} onValueChange={(v: string | null) => setValue("mediaType", (v ?? "spot") as any)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="spot">Spot</SelectItem>
+              <SelectItem value="sponsorship">Patrocínio</SelectItem>
+              <SelectItem value="testimonial">Testemunhal</SelectItem>
+              <SelectItem value="other">Outro</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Início</Label>
+          <Input type="date" {...register("startDate")} />
+        </div>
+        <div className="space-y-2">
+          <Label>Término</Label>
+          <Input type="date" {...register("endDate")} />
+        </div>
+        <div className="space-y-2">
+          <Label>Quantidade de inserções</Label>
+          <Input type="number" {...register("insertions", { valueAsNumber: true })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Valor</Label>
+          <Input type="number" step="0.01" {...register("value", { valueAsNumber: true })} />
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label>Horários</Label>
+          <Input {...register("timeSlots")} placeholder="Ex: 08:00, 12:00, 18:00" />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Observações</Label>
+        <Textarea rows={3} {...register("notes")} />
+      </div>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Salvando..." : "Salvar"}</Button>
+        <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
+      </div>
+    </form>
+  );
+}

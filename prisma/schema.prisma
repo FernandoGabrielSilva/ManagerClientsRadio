@@ -1,0 +1,268 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  admin
+  vendor
+}
+
+enum ContractStatus {
+  active
+  paused
+  ended
+  negotiation
+}
+
+enum MediaType {
+  spot
+  sponsorship
+  testimonial
+  other
+}
+
+enum ContractState {
+  active
+  near_expiry
+  expired
+}
+
+enum ReminderType {
+  video
+  contact
+  ad_change
+  contract_expiry
+  custom
+}
+
+enum EventType {
+  video
+  contact
+  contract_expiry
+  custom
+}
+
+enum NotificationType {
+  info
+  warning
+  success
+  error
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  name                  String?
+  email                 String    @unique
+  emailVerified         DateTime?
+  image                 String?
+  passwordHash          String?
+  role                  UserRole  @default(vendor)
+  themeColor            String    @default("#6366f1")
+  themeMode             String    @default("light")
+  googleCalendarConnected Boolean @default(false)
+  googleAccessToken     String?
+  googleRefreshToken    String?
+  googleCalendarId      String?
+  autoCreateEvents      Boolean   @default(false)
+  notificationsEnabled  Boolean   @default(true)
+  defaultContactFrequency Int     @default(14)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  accounts   Account[]
+  sessions   Session[]
+  clients    Client[]  @relation("ClientVendor")
+  ownedClients Client[] @relation("ClientOwner")
+  contracts  Contract[] @relation("ContractVendor")
+  contactHistories ContactHistory[]
+  reminders  Reminder[]
+  events     Event[]
+  notifications Notification[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Client {
+  id                   String          @id @default(cuid())
+  userId               String
+  vendorId             String?
+  name                 String
+  company              String?
+  legalName            String?
+  tradeName            String?
+  cnpj                 String?
+  address              String?
+  phone                String?
+  email                String?
+  contactName          String?
+  contactPhone         String?
+  contactEmail         String?
+  videoWeekday         Int             @default(1)
+  responsible          String?
+  commercialStatus     String?
+  contactType          String?
+  nextAction           String?
+  nextActionDate       DateTime?
+  dateConference       DateTime?
+  lastContactAt        DateTime?
+  contactFrequencyDays Int             @default(14)
+  contractStatus       ContractStatus  @default(active)
+  contractStart        DateTime?
+  contractEnd          DateTime?
+  contractValue        Float?
+  notes                String?         @db.Text
+  lastVideoSentAt      DateTime?
+  needsAdChange        Boolean         @default(false)
+  archivedAt           DateTime?
+  deletedAt            DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  owner   User           @relation("ClientOwner", fields: [userId], references: [id], onDelete: Cascade)
+  vendor  User?          @relation("ClientVendor", fields: [vendorId], references: [id], onDelete: SetNull)
+  contracts Contract[]
+  contactHistories ContactHistory[]
+  reminders Reminder[]
+  events   Event[]
+  notifications Notification[]
+
+  @@index([userId])
+  @@index([vendorId])
+}
+
+model Contract {
+  id           String        @id @default(cuid())
+  number       String?
+  clientId     String
+  vendorId     String?
+  startDate    DateTime
+  endDate      DateTime
+  mediaType    MediaType     @default(spot)
+  insertions   Int?
+  timeSlots    String?
+  value        Float?
+  status       ContractState @default(active)
+  pdfData      Bytes?
+  pdfName      String?
+  notes        String?       @db.Text
+  archivedAt   DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  client  Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vendor  User?  @relation("ContractVendor", fields: [vendorId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([vendorId])
+  @@index([endDate])
+}
+
+model ContactHistory {
+  id        String   @id @default(cuid())
+  clientId  String
+  vendorId  String?
+  date      DateTime @default(now())
+  summary   String   @db.Text
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vendor User?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+}
+
+model Reminder {
+  id          String       @id @default(cuid())
+  userId      String
+  clientId    String?
+  type        ReminderType
+  title       String
+  message     String?
+  dueDate     DateTime
+  completed   Boolean      @default(false)
+  completedAt DateTime?
+  notifiedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([userId, dueDate])
+}
+
+model Event {
+  id            String    @id @default(cuid())
+  userId        String
+  clientId      String?
+  title         String
+  description   String?   @db.Text
+  start         DateTime
+  end           DateTime?
+  allDay        Boolean   @default(true)
+  type          EventType @default(custom)
+  googleEventId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([userId, start])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  clientId  String?
+  type      NotificationType @default(info)
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([userId, read])
+}

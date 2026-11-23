@@ -1,0 +1,124 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { Bell, Menu, LayoutDashboard, Users, CalendarDays, FileText, Settings, LogOut, Radio } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import Link from "next/link";
+import { signOut } from "next-auth/react";
+import { cn } from "@/lib/utils";
+
+const navItems = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/clients", label: "Clientes", icon: Users },
+  { href: "/contracts", label: "Contratos", icon: FileText },
+  { href: "/calendar", label: "Calendário", icon: CalendarDays },
+  { href: "/settings", label: "Configurações", icon: Settings },
+];
+
+export function Topbar({ user, notifications }: { user: { name?: string | null; email?: string | null; image?: string | null }; notifications?: { id: string; title: string; message: string; read: boolean; link: string | null; createdAt: Date | string }[] }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const initials = (user.name ?? user.email ?? "U").slice(0, 2).toUpperCase();
+  return (
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 backdrop-blur-md px-4 md:px-6">
+      <div className="flex items-center gap-2">
+        <Sheet open={open} onOpenChange={setOpen}>
+          <Button variant="ghost" size="icon" className="md:hidden h-9 w-9" aria-label="Menu" onClick={() => setOpen(true)}>
+            <Menu className="h-5 w-5" />
+          </Button>
+          <SheetContent side="left" className="w-72 p-0">
+            <SheetHeader className="px-5 py-5 border-b">
+              <SheetTitle className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <Radio className="h-5 w-5" />
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold text-sm">ManagerRadio</div>
+                  <div className="text-xs text-muted-foreground font-normal">Gestão comercial</div>
+                </div>
+              </SheetTitle>
+            </SheetHeader>
+            <nav className="px-3 py-4 space-y-1">
+              {navItems.map((it) => {
+                const Icon = it.icon;
+                const active = pathname === it.href || pathname?.startsWith(it.href + "/");
+                return (
+                  <Link
+                    key={it.href}
+                    href={it.href}
+                    onClick={() => setOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                      active ? "bg-primary/10 text-primary font-medium" : "text-foreground/80 hover:bg-muted"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" /> {it.label}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="mt-auto p-3 border-t">
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <LogOut className="h-4 w-4" /> Sair
+              </button>
+            </div>
+          </SheetContent>
+        </Sheet>
+        <span className="text-sm font-medium text-muted-foreground hidden sm:inline">Painel de gestão</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-muted relative" aria-label="Notificações">
+              <Bell className="h-4 w-4" />
+              {(notifications?.filter((n) => !n.read).length ?? 0) > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
+              )}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuGroup><DropdownMenuLabel>Notificações</DropdownMenuLabel></DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            {(notifications ?? []).length === 0 && (
+              <div className="px-2 py-4 text-sm text-muted-foreground text-center">Sem notificações.</div>
+            )}
+            {(notifications ?? []).map((n) => (
+              <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5 py-2" onSelect={() => { if (n.link) router.push(n.link); }}>
+                <span className={cn("text-sm font-medium", n.read && "text-muted-foreground")}>{n.title}</span>
+                <span className="text-xs text-muted-foreground line-clamp-2">{n.message}</span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => router.push("/notifications")}>Ver todas</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex items-center gap-2 rounded-full pl-1 pr-3 py-1 hover:bg-muted transition-colors">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user.image ?? undefined} />
+              <AvatarFallback className="text-xs bg-primary/10 text-primary">{initials}</AvatarFallback>
+            </Avatar>
+            <span className="hidden sm:block text-sm font-medium max-w-[120px] truncate">{user.name ?? user.email}</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuGroup><DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{user.name ?? "Usuário"}</p>
+                <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+              </div>
+            </DropdownMenuLabel></DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => router.push("/settings")}>Configurações</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => signOut({ callbackUrl: "/login" })}>Sair</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </header>
+  );
+}
