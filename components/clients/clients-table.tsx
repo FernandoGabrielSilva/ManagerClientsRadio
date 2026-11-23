@@ -91,24 +91,24 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
 
   return (
     <div className="p-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input placeholder="Pesquisar clientes..." value={query} onChange={(e) => setQuery(e.target.value)} className="max-w-xs" />
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
+        <Input placeholder="Pesquisar clientes..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-full sm:max-w-xs" />
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
-          <SelectTrigger className="w-44"><SelectValue>{(v: any) => v === "all" || v == null ? "Todas" : v}</SelectValue></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue>{(v: any) => v === "all" || v == null ? "Todas" : v}</SelectValue></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas situações</SelectItem>
             {statuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={vendorFilter} onValueChange={(v) => setVendorFilter(v ?? "all")}>
-          <SelectTrigger className="w-44"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos responsáveis</SelectItem>
             {vendors.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
           </SelectContent>
         </Select>
         {selected.size > 0 && (
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>
             {view === "active" && (
               <>
@@ -133,7 +133,7 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
       </div>
 
       <div className="max-h-[420px] overflow-auto border rounded-md">
-        <Table>
+        <Table className="min-w-[760px]">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-10">

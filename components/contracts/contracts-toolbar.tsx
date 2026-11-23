@@ -39,12 +39,12 @@ export function ContractsToolbar({ contracts, view = "active" }: { contracts: an
             <p className="text-sm text-muted-foreground">{contracts.length} contratos cadastrados</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border p-1">
+        <div className="flex items-center gap-1 rounded-lg border p-1 w-full sm:w-auto">
           {[
             { key: "active", label: "Ativos" },
             { key: "archived", label: "Arquivados" },
           ].map((t) => (
-            <Link key={t.key} href={`/contracts?view=${t.key}`} className={`px-3 py-1.5 text-sm rounded-md ${view === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+            <Link key={t.key} href={`/contracts?view=${t.key}`} className={`flex-1 sm:flex-none text-center px-3 py-1.5 text-sm rounded-md ${view === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
               {t.label}
             </Link>
           ))}
@@ -53,7 +53,7 @@ export function ContractsToolbar({ contracts, view = "active" }: { contracts: an
         <ExportButton data={exportData} filename="contratos.xlsx" />
         <ExportPdfButton data={exportData} filename="contratos.pdf" columns={Object.keys(exportData[0] ?? {}).map((k) => ({ header: k, dataKey: k }))} />
         <ImportButton onImport={handleImport} />
-        <Link href="/contracts/new"><Button><Plus className="h-4 w-4 mr-2" />Novo contrato</Button></Link>
+        <Link href="/contracts/new" className="w-full sm:w-auto"><Button className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Novo contrato</Button></Link>
       </div>
     </div>
   );

@@ -75,9 +75,9 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
         </div>
       </div>
 
-       <div className="grid lg:grid-cols-[460px_1fr] gap-4">
+       <div className="grid gap-4 xl:grid-cols-[460px_1fr]">
         <Card>
-          <CardContent className="p-3 flex justify-center">
+          <CardContent className="p-3 flex justify-center overflow-x-auto">
             <Calendar
               mode="single"
               selected={date}
@@ -97,13 +97,13 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
             {dayEvents.length === 0 && <p className="text-sm text-muted-foreground">Nenhum evento neste dia.</p>}
             <div className="max-h-[360px] overflow-auto space-y-2">
             {dayEvents.map((e) => (
-              <div key={e.id} className="flex items-center justify-between border rounded-md px-3 py-2 gap-2">
+              <div key={e.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between border rounded-md px-3 py-2 gap-2">
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{e.title}</div>
                   <div className="text-xs text-muted-foreground">{formatDate(e.start)}{e.client?.name ? ` · ${e.client.name}` : ""}</div>
-                  {e.description && <div className="text-xs text-muted-foreground">{e.description}</div>}
+                  {e.description && <div className="text-xs text-muted-foreground break-words">{e.description}</div>}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                   <Badge variant="outline" className={typeColor[e.type] ?? ""}>{e.type}</Badge>
                   <Button size="sm" variant="ghost" onClick={async () => { await deleteEventAction(e.id); load(date); }}>Excluir</Button>
                 </div>

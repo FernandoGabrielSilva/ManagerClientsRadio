@@ -93,17 +93,17 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
 
   return (
     <div className="p-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input placeholder="Pesquisar contratos..." value={query} onChange={(e) => setQuery(e.target.value)} className="max-w-xs" />
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
+        <Input placeholder="Pesquisar contratos..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-full sm:max-w-xs" />
         <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "all")}>
-          <SelectTrigger className="w-40"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-40"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos tipos</SelectItem>
             {types.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
-          <SelectTrigger className="w-44"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos status</SelectItem>
             <SelectItem value="Ativo">Ativo</SelectItem>
@@ -112,7 +112,7 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
           </SelectContent>
         </Select>
         {selected.size > 0 && (
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>
             {view === "active" && (
               <>
@@ -137,7 +137,7 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
       </div>
 
       <div className="max-h-[420px] overflow-auto border rounded-md">
-        <Table>
+        <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-10">

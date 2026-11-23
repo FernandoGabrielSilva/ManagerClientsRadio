@@ -47,12 +47,12 @@ export function ClientsToolbar({ clients, vendors, view = "active" }: { clients:
             <p className="text-sm text-muted-foreground">{clients.length} clientes cadastrados</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border p-1">
+        <div className="flex items-center gap-1 rounded-lg border p-1 w-full sm:w-auto">
           {[
             { key: "active", label: "Ativos" },
             { key: "archived", label: "Arquivados" },
           ].map((t) => (
-            <Link key={t.key} href={`/clients?view=${t.key}`} className={`px-3 py-1.5 text-sm rounded-md ${view === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+            <Link key={t.key} href={`/clients?view=${t.key}`} className={`flex-1 sm:flex-none text-center px-3 py-1.5 text-sm rounded-md ${view === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
               {t.label}
             </Link>
           ))}
@@ -62,7 +62,7 @@ export function ClientsToolbar({ clients, vendors, view = "active" }: { clients:
         <ExportPdfButton data={exportData} filename="clientes.pdf" columns={Object.keys(exportData[0] ?? {}).map((k) => ({ header: k, dataKey: k }))} />
         <ImportButton onImport={handleImport} />
         <Dialog open={open} onOpenChange={setOpen}>
-          <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-2" />Novo cliente</Button>
+          <Button onClick={() => setOpen(true)} className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Novo cliente</Button>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Novo cliente</DialogTitle></DialogHeader>
             <ClientForm vendors={vendors} onSuccess={() => setOpen(false)} />

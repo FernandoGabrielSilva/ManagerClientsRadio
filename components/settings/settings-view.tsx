@@ -204,8 +204,8 @@ export function SettingsView({
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-8">
-        <aside className="w-full md:w-64 flex flex-col gap-2">
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+        <aside className="w-full lg:w-64 flex flex-row lg:flex-col gap-2 overflow-x-auto pb-1 lg:pb-0">
           {tabs.map((t) => {
             const Icon = t.icon;
             const active = tab === t.key;
@@ -213,7 +213,7 @@ export function SettingsView({
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm transition-all text-left ${
+                className={`flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm transition-all text-left whitespace-nowrap shrink-0 ${
                   active
                     ? "bg-primary/10 text-primary font-medium shadow-sm"
                     : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
@@ -225,7 +225,7 @@ export function SettingsView({
           })}
         </aside>
 
-        <div className="flex-1 bg-card p-8 rounded-xl border border-border">
+        <div className="flex-1 min-w-0 bg-card p-4 sm:p-6 lg:p-8 rounded-xl border border-border">
           {tab === "profile" && (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Editar perfil</h2>
