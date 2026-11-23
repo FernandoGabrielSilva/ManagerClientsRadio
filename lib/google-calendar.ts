@@ -32,6 +32,16 @@ export async function createCalendarEvent(
   return res.data.id ?? null;
 }
 
+export async function deleteCalendarEvent(
+  accessToken: string,
+  refreshToken: string | null | undefined,
+  calendarId: string,
+  eventId: string
+) {
+  const calendar = getCalendarClient(accessToken, refreshToken);
+  await calendar.events.delete({ calendarId, eventId });
+}
+
 export async function listCalendarEvents(
   accessToken: string,
   refreshToken: string | null | undefined,

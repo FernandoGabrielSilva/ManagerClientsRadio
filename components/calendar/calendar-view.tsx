@@ -9,8 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { listEventsAction } from "@/app/actions/events";
-import { createEventAction } from "@/app/actions/events";
+import { createEventAction, deleteEventAction, listEventsAction } from "@/app/actions/events";
 import { formatDate, nextContactDate } from "@/lib/date-utils";
 import { CalendarDays as CalendarIcon } from "lucide-react";
 import { isSameDay, startOfMonth, endOfMonth } from "date-fns";
@@ -112,12 +111,17 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
             {dayEvents.length === 0 && <p className="text-sm text-muted-foreground">Nenhum evento neste dia.</p>}
             <div className="max-h-[360px] overflow-auto space-y-2">
             {dayEvents.map((e) => (
-              <div key={e.id} className="flex items-center justify-between border rounded-md px-3 py-2">
-                <div>
-                  <div className="text-sm font-medium">{e.title}</div>
+              <div key={e.id} className="flex items-center justify-between border rounded-md px-3 py-2 gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{e.title}</div>
                   {e.description && <div className="text-xs text-muted-foreground">{e.description}</div>}
                 </div>
-                <Badge variant="outline" className={typeColor[e.type] ?? ""}>{e.type}</Badge>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant="outline" className={typeColor[e.type] ?? ""}>{e.type}</Badge>
+                  {!String(e.id).startsWith("last-") && !String(e.id).startsWith("next-") && (
+                    <Button size="sm" variant="ghost" onClick={async () => { await deleteEventAction(e.id); load(date); }}>Excluir</Button>
+                  )}
+                </div>
               </div>
             ))}
             </div>

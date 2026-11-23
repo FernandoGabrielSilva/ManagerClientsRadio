@@ -33,6 +33,7 @@ import {
   updateNotificationPrefsAction,
   disconnectGoogleAction,
   updateUserRoleAction,
+  deleteAllSyncedGoogleEventsAction,
 } from "@/app/actions/settings";
 
 export function SettingsView({
@@ -128,6 +129,12 @@ export function SettingsView({
       googleCalendarId: (fd.get("calId") as string) || null,
     });
     toast.add({ title: "Preferências salvas" });
+  }
+
+  async function deleteSyncedGoogleEvents() {
+    if (!confirm("Apagar todos os eventos criados pelo site no Google Agenda? Os eventos locais serão mantidos.")) return;
+    const res = await deleteAllSyncedGoogleEventsAction();
+    toast.add({ title: "Eventos removidos", description: `${res.deleted ?? 0} de ${res.total ?? 0} removidos no Google` });
   }
 
   async function syncGoogle() {
@@ -256,10 +263,16 @@ export function SettingsView({
                     className="w-full bg-background border-input"
                   />
                 </div>
-                <div>
-                  <Button type="submit">{user.hasPassword ? "Alterar" : "Definir senha"}</Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="submit">Salvar</Button>
+                  <Button type="button" variant="destructive" onClick={deleteSyncedGoogleEvents}>
+                    Apagar eventos do site no Google
+                  </Button>
                 </div>
               </form>
+              <p className="text-xs text-muted-foreground max-w-md">
+                Com &quot;Criar eventos automaticamente&quot; ativo, novos eventos do site são criados no Google Agenda e remoções no site também removem no Google.
+              </p>
             </div>
           )}
 

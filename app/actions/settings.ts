@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { profileSchema, passwordSchema, themeSchema } from "@/lib/validators";
+import { deleteCalendarEvent } from "@/lib/google-calendar";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -65,6 +66,32 @@ export async function updateNotificationPrefsAction(prefs: {
   await prisma.user.update({ where: { id: userId }, data: prefs });
   revalidatePath("/settings");
   return { success: true };
+}
+
+export async function deleteAllSyncedGoogleEventsAction() {
+  const userId = await getUserId();
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { googleCalendarConnected: true, googleAccessToken: true, googleRefreshToken: true, googleCalendarId: true },
+  });
+  const events = await prisma.event.findMany({ where: { userId, googleEventId: { not: null } } });
+  let deleted = 0;
+  if (user?.googleCalendarConnected && user.googleAccessToken) {
+    const calendarId = user.googleCalendarId || "primary";
+    for (const ev of events) {
+      if (!ev.googleEventId) continue;
+      try {
+        await deleteCalendarEvent(user.googleAccessToken, user.googleRefreshToken, calendarId, ev.googleEventId);
+        deleted++;
+      } catch (e) {
+        console.error("google bulk delete error", e);
+      }
+    }
+  }
+  await prisma.event.updateMany({ where: { userId, googleEventId: { not: null } }, data: { googleEventId: null } });
+  revalidatePath("/calendar");
+  revalidatePath("/settings");
+  return { success: true, deleted, total: events.length };
 }
 
 export async function disconnectGoogleAction() {
