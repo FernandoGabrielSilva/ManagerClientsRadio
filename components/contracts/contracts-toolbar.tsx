@@ -49,7 +49,7 @@ export function ContractsToolbar({ contracts, view = "active" }: { contracts: an
             </Link>
           ))}
         </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
         <ExportButton data={exportData} filename="contratos.xlsx" />
         <ExportPdfButton data={exportData} filename="contratos.pdf" columns={Object.keys(exportData[0] ?? {}).map((k) => ({ header: k, dataKey: k }))} />
         <ImportButton onImport={handleImport} />

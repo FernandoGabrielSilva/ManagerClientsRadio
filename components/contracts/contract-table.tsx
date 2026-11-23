@@ -136,8 +136,8 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
         )}
       </div>
 
-      <div className="max-h-[420px] overflow-auto border rounded-md">
-        <Table className="min-w-[900px]">
+      <div className="max-h-[420px] overflow-x-auto border rounded-md">
+        <Table className="min-w-[900px] w-max">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-10">

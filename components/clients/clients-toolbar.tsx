@@ -57,7 +57,7 @@ export function ClientsToolbar({ clients, vendors, view = "active" }: { clients:
             </Link>
           ))}
         </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
         <ExportButton data={exportData} filename="clientes.xlsx" />
         <ExportPdfButton data={exportData} filename="clientes.pdf" columns={Object.keys(exportData[0] ?? {}).map((k) => ({ header: k, dataKey: k }))} />
         <ImportButton onImport={handleImport} />

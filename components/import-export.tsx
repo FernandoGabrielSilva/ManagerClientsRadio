@@ -20,7 +20,7 @@ export function ExportButton({ data, filename }: { data: any[]; filename: string
     URL.revokeObjectURL(url);
   }
   return (
-    <Button variant="outline" onClick={handle}>
+    <Button variant="outline" onClick={handle} className="w-full sm:w-auto">
       <Download className="h-4 w-4 mr-2" /> Exportar Excel
     </Button>
   );
@@ -57,7 +57,7 @@ export function ImportButton({ onImport }: { onImport: (rows: any[]) => Promise<
   return (
     <>
       <input ref={ref} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleChange} />
-      <Button variant="outline" onClick={() => ref.current?.click()}>
+      <Button variant="outline" onClick={() => ref.current?.click()} className="w-full sm:w-auto">
         <Upload className="h-4 w-4 mr-2" /> Importar Excel
       </Button>
     </>
@@ -74,7 +74,7 @@ export function ExportPdfButton({ data, filename, columns }: { data: any[]; file
     doc.save(filename);
   }
   return (
-    <Button variant="outline" onClick={handle}>
+    <Button variant="outline" onClick={handle} className="w-full sm:w-auto">
       <Download className="h-4 w-4 mr-2" /> Exportar PDF
     </Button>
   );

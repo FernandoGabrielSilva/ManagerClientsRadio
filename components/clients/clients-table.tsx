@@ -132,8 +132,8 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
         )}
       </div>
 
-      <div className="max-h-[420px] overflow-auto border rounded-md">
-        <Table className="min-w-[760px]">
+      <div className="max-h-[420px] overflow-x-auto border rounded-md">
+        <Table className="min-w-[760px] w-max">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-10">
