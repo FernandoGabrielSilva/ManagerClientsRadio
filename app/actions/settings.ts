@@ -31,9 +31,13 @@ export async function changePasswordAction(data: z.infer<typeof passwordSchema>)
   const parsed = passwordSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user?.passwordHash) return { error: "Usuário sem senha" };
-  const ok = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
-  if (!ok) return { error: "Senha atual incorreta" };
+  if (!user) return { error: "Usuário não encontrado" };
+  if (user.passwordHash) {
+    const ok = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
+    if (!ok) return { error: "Senha atual incorreta" };
+  } else if (parsed.data.currentPassword) {
+    return { error: "Esta conta não possui senha atual. Deixe o campo em branco para definir uma senha." };
+  }
   const hash = await bcrypt.hash(parsed.data.newPassword, 10);
   await prisma.user.update({ where: { id: userId }, data: { passwordHash: hash } });
   return { success: true };

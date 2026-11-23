@@ -4,8 +4,15 @@ import { SettingsView } from "@/components/settings/settings-view";
 
 export default async function SettingsPage() {
   const session = await auth();
-  const user = await prisma.user.findUnique({ where: { id: session!.user!.id as string } });
+  const user = await prisma.user.findUnique({
+    where: { id: session!.user!.id as string },
+    select: {
+      id: true, name: true, email: true, image: true, themeColor: true, themeMode: true,
+      googleCalendarConnected: true, notificationsEnabled: true, autoCreateEvents: true,
+      defaultContactFrequency: true, googleCalendarId: true, role: true, passwordHash: true,
+    },
+  });
   if (!user) return null;
   const users = user.role === "admin" ? await prisma.user.findMany({ select: { id: true, name: true, email: true, role: true }, orderBy: { name: "asc" } }) : [];
-  return <SettingsView user={user} users={users} />;
+  return <SettingsView user={{ ...user, hasPassword: !!user.passwordHash }} users={users} />;
 }

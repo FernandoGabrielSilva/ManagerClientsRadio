@@ -52,6 +52,7 @@ export function SettingsView({
     defaultContactFrequency: number;
     googleCalendarId: string | null;
     role?: string;
+    hasPassword: boolean;
   };
   users?: { id: string; name: string | null; email: string; role: string }[];
 }) {
@@ -226,19 +227,27 @@ export function SettingsView({
 
           {tab === "password" && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold">Trocar senha</h2>
+              <h2 className="text-lg font-semibold">{user.hasPassword ? "Trocar senha" : "Definir senha"}</h2>
+              {!user.hasPassword && (
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Sua conta foi criada com Google. Defina uma senha para também entrar com e-mail e senha.
+                </p>
+              )}
               <form
                 onSubmit={savePassword}
                 className="flex flex-col gap-4 max-w-md"
               >
-                <div className="space-y-2">
-                  <Label>Senha atual</Label>
-                  <Input
-                    name="current"
-                    type="password"
-                    className="w-full bg-background border-input"
-                  />
-                </div>
+                {user.hasPassword && (
+                  <div className="space-y-2">
+                    <Label>Senha atual</Label>
+                    <Input
+                      name="current"
+                      type="password"
+                      className="w-full bg-background border-input"
+                    />
+                  </div>
+                )}
+                {!user.hasPassword && <input type="hidden" name="current" value="" />}
                 <div className="space-y-2">
                   <Label>Nova senha</Label>
                   <Input
@@ -248,7 +257,7 @@ export function SettingsView({
                   />
                 </div>
                 <div>
-                  <Button type="submit">Alterar</Button>
+                  <Button type="submit">{user.hasPassword ? "Alterar" : "Definir senha"}</Button>
                 </div>
               </form>
             </div>

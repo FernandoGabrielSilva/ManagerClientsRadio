@@ -29,6 +29,14 @@ export default function RegisterPage() {
     fd.append("email", values.email);
     fd.append("password", values.password);
     const res = await registerAction(fd);
+    if (res?.error === "EMAIL_EXISTS_GOOGLE") {
+      router.push(`/login?link=${encodeURIComponent(res.email ?? values.email)}&reason=google`);
+      return;
+    }
+    if (res?.error === "EMAIL_EXISTS_PASSWORD") {
+      router.push(`/login?link=${encodeURIComponent(res.email ?? values.email)}&reason=password`);
+      return;
+    }
     if (res?.error) setError(res.error);
   }
 
