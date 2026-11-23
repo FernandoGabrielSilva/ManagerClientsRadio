@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { eventSchema } from "@/lib/validators";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar";
+import { formatDate, nextContactDate } from "@/lib/date-utils";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -84,4 +85,49 @@ export async function listEventsAction(start: string, end: string) {
     where: { userId, start: { gte: new Date(start), lte: new Date(end) } },
     include: { client: true },
   });
+}
+
+export async function ensureClientContactEventsAction() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Não autenticado");
+  const userId = session.user.id as string;
+  const role = (session.user as any).role;
+  const where = role === "admin"
+    ? { deletedAt: null, archivedAt: null }
+    : { OR: [{ userId }, { vendorId: userId }], deletedAt: null, archivedAt: null };
+  const clients = await prisma.client.findMany({
+    where,
+    select: { id: true, name: true, lastContactAt: true, contactFrequencyDays: true },
+  });
+  let created = 0;
+  for (const c of clients) {
+    const next = nextContactDate(c.lastContactAt ? new Date(c.lastContactAt) : null, c.contactFrequencyDays ?? 14);
+    const start = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth(), next.getUTCDate()));
+    const existing = await prisma.event.findFirst({
+      where: { userId, clientId: c.id, type: "contact", start },
+    });
+    if (existing) {
+      const desc = `Próximo contato com ${c.name} em ${formatDate(start)}.`;
+      if (existing.description !== desc || existing.title !== `Contato: ${c.name}`) {
+        await prisma.event.update({ where: { id: existing.id }, data: { title: `Contato: ${c.name}`, description: desc } });
+      }
+      continue;
+    }
+    const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 1));
+    await prisma.event.create({
+      data: {
+        userId,
+        clientId: c.id,
+        title: `Contato: ${c.name}`,
+        description: `Próximo contato com ${c.name} em ${formatDate(start)}.`,
+        start,
+        end,
+        allDay: true,
+        type: "contact",
+      },
+    });
+    created++;
+  }
+  revalidatePath("/calendar");
+  return { success: true, created, total: clients.length };
 }

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { createEventAction, deleteEventAction, listEventsAction } from "@/app/actions/events";
+import { createEventAction, deleteEventAction, ensureClientContactEventsAction, listEventsAction } from "@/app/actions/events";
 import { formatDate, nextContactDate } from "@/lib/date-utils";
 import { CalendarDays as CalendarIcon } from "lucide-react";
 import { isSameDay, startOfMonth, endOfMonth } from "date-fns";
@@ -25,25 +25,11 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
   const [form, setForm] = useState({ title: "", type: "custom", start: "", end: "" });
 
   async function load(d: Date) {
-    const synthetic: any[] = [];
-    const filteredClients = vendorFilter === "all" ? clients : clients.filter((c) => c.vendorId === vendorFilter);
-    for (const c of filteredClients) {
-      if (c.lastContactAt) {
-        const last = new Date(c.lastContactAt);
-        if (last.getUTCFullYear() === d.getFullYear() && last.getUTCMonth() === d.getMonth()) {
-          synthetic.push({ id: `last-${c.id}`, title: c.name, type: "contact", start: last.toISOString(), client: { name: c.name } });
-        }
-      }
-      const next = nextContactDate(c.lastContactAt ? new Date(c.lastContactAt) : null, c.contactFrequencyDays ?? 14);
-      if (next.getUTCFullYear() === d.getFullYear() && next.getUTCMonth() === d.getMonth()) {
-        synthetic.push({ id: `next-${c.id}`, title: c.name, type: "contact", start: next.toISOString(), client: { name: c.name } });
-      }
-    }
     const evs = await listEventsAction(startOfMonth(d).toISOString(), endOfMonth(d).toISOString());
-    setEvents([...evs, ...synthetic]);
+    setEvents(evs);
   }
 
-  useEffect(() => { load(date); }, [date, vendorFilter, clients]);
+  useEffect(() => { load(date); }, [date]);
 
   function eventLocalDate(e: any) {
     const d = new Date(e.start);
@@ -85,6 +71,7 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
           <div><h1 className="text-2xl font-bold tracking-tight">Calendário</h1><p className="text-sm text-muted-foreground">Agenda de eventos e compromissos</p></div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={async () => { await ensureClientContactEventsAction(); load(date); }}>Gerar eventos de clientes</Button>
           <Button onClick={() => setOpen(true)}>Novo evento</Button>
         </div>
       </div>
@@ -114,13 +101,12 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
               <div key={e.id} className="flex items-center justify-between border rounded-md px-3 py-2 gap-2">
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{e.title}</div>
+                  <div className="text-xs text-muted-foreground">{formatDate(e.start)}{e.client?.name ? ` · ${e.client.name}` : ""}</div>
                   {e.description && <div className="text-xs text-muted-foreground">{e.description}</div>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Badge variant="outline" className={typeColor[e.type] ?? ""}>{e.type}</Badge>
-                  {!String(e.id).startsWith("last-") && !String(e.id).startsWith("next-") && (
-                    <Button size="sm" variant="ghost" onClick={async () => { await deleteEventAction(e.id); load(date); }}>Excluir</Button>
-                  )}
+                  <Button size="sm" variant="ghost" onClick={async () => { await deleteEventAction(e.id); load(date); }}>Excluir</Button>
                 </div>
               </div>
             ))}
