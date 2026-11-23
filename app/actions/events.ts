@@ -14,15 +14,19 @@ async function getUserId() {
   return session.user.id;
 }
 
-async function pushEventToGoogle(userId: string, event: { id: string; title: string; description: string | null; start: Date; end: Date | null; allDay: boolean }) {
-  const user = await prisma.user.findUnique({
+async function getGoogleUser(userId: string) {
+  return prisma.user.findUnique({
     where: { id: userId },
     select: { googleCalendarConnected: true, autoCreateEvents: true, googleAccessToken: true, googleRefreshToken: true, googleCalendarId: true },
   });
-  if (!user?.googleCalendarConnected || !user.autoCreateEvents || !user.googleAccessToken) return;
-  const calendarId = user.googleCalendarId || "primary";
+}
+
+async function pushEventToGoogle(userId: string, event: { id: string; title: string; description: string | null; start: Date; end: Date | null; allDay: boolean }, user?: Awaited<ReturnType<typeof getGoogleUser>>) {
+  const u = user ?? await getGoogleUser(userId);
+  if (!u?.googleCalendarConnected || !u.autoCreateEvents || !u.googleAccessToken) return;
+  const calendarId = u.googleCalendarId || "primary";
   try {
-    const gid = await createCalendarEvent(user.googleAccessToken, user.googleRefreshToken, calendarId, {
+    const gid = await createCalendarEvent(u.googleAccessToken, u.googleRefreshToken, calendarId, {
       title: event.title,
       description: event.description ?? undefined,
       start: event.start,
@@ -33,6 +37,20 @@ async function pushEventToGoogle(userId: string, event: { id: string; title: str
   } catch (e) {
     console.error("google push error", e);
   }
+}
+
+export async function syncPendingGoogleEventsForUser(userId: string) {
+  const user = await getGoogleUser(userId);
+  if (!user?.googleCalendarConnected || !user.autoCreateEvents || !user.googleAccessToken) return { pushed: 0 };
+  const pending = await prisma.event.findMany({ where: { userId, googleEventId: null } });
+  let pushed = 0;
+  for (const ev of pending) {
+    const before = ev.googleEventId;
+    await pushEventToGoogle(userId, ev, user);
+    const after = await prisma.event.findUnique({ where: { id: ev.id }, select: { googleEventId: true } });
+    if (!before && after?.googleEventId) pushed++;
+  }
+  return { pushed };
 }
 
 export async function createEventAction(data: z.infer<typeof eventSchema>) {
@@ -92,6 +110,10 @@ export async function ensureClientContactEventsAction() {
   if (!session?.user?.id) throw new Error("Não autenticado");
   const userId = session.user.id as string;
   const role = (session.user as any).role;
+  return ensureClientContactEventsForUser(userId, role);
+}
+
+export async function ensureClientContactEventsForUser(userId: string, role?: string) {
   const where = role === "admin"
     ? { deletedAt: null, archivedAt: null }
     : { OR: [{ userId }, { vendorId: userId }], deletedAt: null, archivedAt: null };
@@ -114,7 +136,7 @@ export async function ensureClientContactEventsAction() {
       continue;
     }
     const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 1));
-    await prisma.event.create({
+    const event = await prisma.event.create({
       data: {
         userId,
         clientId: c.id,
@@ -126,6 +148,7 @@ export async function ensureClientContactEventsAction() {
         type: "contact",
       },
     });
+    await pushEventToGoogle(userId, event);
     created++;
   }
   revalidatePath("/calendar");

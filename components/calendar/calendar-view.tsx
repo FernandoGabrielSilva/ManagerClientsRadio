@@ -71,7 +71,6 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
           <div><h1 className="text-2xl font-bold tracking-tight">Calendário</h1><p className="text-sm text-muted-foreground">Agenda de eventos e compromissos</p></div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={async () => { await ensureClientContactEventsAction(); load(date); }}>Gerar eventos de clientes</Button>
           <Button onClick={() => setOpen(true)}>Novo evento</Button>
         </div>
       </div>
