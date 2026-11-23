@@ -32,8 +32,9 @@ export async function POST() {
         pushed++;
       }
     } catch (e) {
-      console.error("sync push error", e);
-      errors.push(`push:${ev.id}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("sync push error", msg);
+      errors.push(`push:${ev.id}:${msg.slice(0, 80)}`);
     }
   }
 

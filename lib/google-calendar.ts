@@ -21,9 +21,20 @@ export async function createCalendarEvent(
     description: event.description ?? undefined,
   };
   if (event.allDay) {
-    const dateStr = event.start.toISOString().slice(0, 10);
-    body.start = { date: dateStr };
-    body.end = { date: (event.end ?? event.start).toISOString().slice(0, 10) };
+    const startStr = event.start.toISOString().slice(0, 10);
+    const endBase = event.end ? new Date(event.end) : new Date(event.start);
+    let endStr = endBase.toISOString().slice(0, 10);
+    if (endStr <= startStr) {
+      const next = new Date(event.start);
+      next.setUTCDate(next.getUTCDate() + 1);
+      endStr = next.toISOString().slice(0, 10);
+    } else {
+      const next = new Date(endBase);
+      next.setUTCDate(next.getUTCDate() + 1);
+      endStr = next.toISOString().slice(0, 10);
+    }
+    body.start = { date: startStr };
+    body.end = { date: endStr };
   } else {
     body.start = { dateTime: event.start.toISOString() };
     body.end = { dateTime: (event.end ?? new Date(event.start.getTime() + 3600000)).toISOString() };
