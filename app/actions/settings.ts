@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { profileSchema, passwordSchema, themeSchema } from "@/lib/validators";
-import { deleteCalendarEvent } from "@/lib/google-calendar";
+import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -92,6 +92,43 @@ export async function deleteAllSyncedGoogleEventsAction() {
   revalidatePath("/calendar");
   revalidatePath("/settings");
   return { success: true, deleted, total: events.length };
+}
+
+export async function pushAllLocalEventsToGoogleAction() {
+  const userId = await getUserId();
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { googleCalendarConnected: true, googleAccessToken: true, googleRefreshToken: true, googleCalendarId: true },
+  });
+  if (!user?.googleCalendarConnected || !user.googleAccessToken) {
+    return { error: "Google não conectado" };
+  }
+  const calendarId = user.googleCalendarId || "primary";
+  const events = await prisma.event.findMany({ where: { userId, googleEventId: null }, orderBy: { start: "asc" } });
+  let pushed = 0;
+  const errors: string[] = [];
+  for (const ev of events) {
+    try {
+      const gid = await createCalendarEvent(user.googleAccessToken, user.googleRefreshToken, calendarId, {
+        title: ev.title,
+        description: ev.description ?? undefined,
+        start: ev.start,
+        end: ev.end,
+        allDay: ev.allDay,
+      });
+      if (gid) {
+        await prisma.event.update({ where: { id: ev.id }, data: { googleEventId: gid } });
+        pushed++;
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("push all error", msg);
+      errors.push(msg.slice(0, 80));
+    }
+  }
+  revalidatePath("/calendar");
+  revalidatePath("/settings");
+  return { success: true, pushed, total: events.length, errors };
 }
 
 export async function disconnectGoogleAction() {

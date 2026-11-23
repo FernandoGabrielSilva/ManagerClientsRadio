@@ -34,6 +34,7 @@ import {
   disconnectGoogleAction,
   updateUserRoleAction,
   deleteAllSyncedGoogleEventsAction,
+  pushAllLocalEventsToGoogleAction,
 } from "@/app/actions/settings";
 
 export function SettingsView({
@@ -147,6 +148,19 @@ export function SettingsView({
     toast.add({
       title: "Sincronizado",
       description: `${j.pushed ?? 0} enviado(s) ao Google, ${j.pulled ?? 0} importado(s)${j.errors?.length ? `, ${j.errors.length} erro(s)` : ""}`,
+    });
+  }
+
+  async function pushAllToGoogle() {
+    if (!confirm("Enviar todos os eventos locais ainda não sincronizados para o Google Agenda?")) return;
+    const res = await pushAllLocalEventsToGoogleAction();
+    if (res.error) {
+      toast.add({ title: "Erro", description: res.error });
+      return;
+    }
+    toast.add({
+      title: "Exportação concluída",
+      description: `${res.pushed ?? 0} de ${res.total ?? 0} enviado(s)${res.errors?.length ? `, ${res.errors.length} erro(s)` : ""}`,
     });
   }
 
@@ -364,9 +378,12 @@ export function SettingsView({
                     Conectar Google
                   </Button>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={syncGoogle}>
                       Sincronizar agora
+                    </Button>
+                    <Button variant="outline" onClick={pushAllToGoogle}>
+                      Enviar todos eventos ao Google
                     </Button>
                     <Button
                       variant="destructive"
