@@ -11,33 +11,32 @@ export async function POST() {
     return NextResponse.json({ error: "Google não conectado" }, { status: 400 });
   }
   const calendarId = user.googleCalendarId || "primary";
-  let created = 0;
+  let pushed = 0;
+  let pulled = 0;
+  const errors: string[] = [];
 
-  // Push local events without googleEventId
-  if (user.autoCreateEvents) {
-    const pending = await prisma.event.findMany({
-      where: { userId: user.id, googleEventId: null },
-    });
-    for (const ev of pending) {
-      try {
-        const gid = await createCalendarEvent(user.googleAccessToken, user.googleRefreshToken, calendarId, {
-          title: ev.title,
-          description: ev.description ?? undefined,
-          start: ev.start,
-          end: ev.end,
-          allDay: ev.allDay,
-        });
-        if (gid) {
-          await prisma.event.update({ where: { id: ev.id }, data: { googleEventId: gid } });
-          created++;
-        }
-      } catch (e) {
-        console.error("sync push error", e);
+  const pending = await prisma.event.findMany({
+    where: { userId: user.id, googleEventId: null },
+  });
+  for (const ev of pending) {
+    try {
+      const gid = await createCalendarEvent(user.googleAccessToken, user.googleRefreshToken, calendarId, {
+        title: ev.title,
+        description: ev.description ?? undefined,
+        start: ev.start,
+        end: ev.end,
+        allDay: ev.allDay,
+      });
+      if (gid) {
+        await prisma.event.update({ where: { id: ev.id }, data: { googleEventId: gid } });
+        pushed++;
       }
+    } catch (e) {
+      console.error("sync push error", e);
+      errors.push(`push:${ev.id}`);
     }
   }
 
-  // Pull events from Google (basic)
   try {
     const now = new Date();
     const later = new Date(now.getTime() + 60 * 24 * 3600 * 1000);
@@ -60,11 +59,12 @@ export async function POST() {
           googleEventId: it.id,
         },
       });
-      created++;
+      pulled++;
     }
   } catch (e) {
     console.error("sync pull error", e);
+    errors.push("pull");
   }
 
-  return NextResponse.json({ ok: true, created });
+  return NextResponse.json({ ok: true, pushed, pulled, errors });
 }

@@ -140,9 +140,13 @@ export function SettingsView({
   async function syncGoogle() {
     const res = await fetch("/api/google/sync", { method: "POST" });
     const j = await res.json();
+    if (!res.ok) {
+      toast.add({ title: "Erro ao sincronizar", description: j.error ?? "Falha" });
+      return;
+    }
     toast.add({
       title: "Sincronizado",
-      description: `${j.created ?? 0} eventos`,
+      description: `${j.pushed ?? 0} enviado(s) ao Google, ${j.pulled ?? 0} importado(s)${j.errors?.length ? `, ${j.errors.length} erro(s)` : ""}`,
     });
   }
 
