@@ -8,7 +8,14 @@ export async function middleware(req: NextRequest) {
   const isAuthPage = req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/register");
   const isApiAuth = req.nextUrl.pathname.startsWith("/api/auth");
   const isCron = req.nextUrl.pathname.startsWith("/api/cron");
-  const isPublic = isAuthPage || isApiAuth || isCron || req.nextUrl.pathname.startsWith("/_next") || req.nextUrl.pathname === "/favicon.ico";
+  const isPublic =
+    isAuthPage ||
+    isApiAuth ||
+    isCron ||
+    req.nextUrl.pathname.startsWith("/_next") ||
+    req.nextUrl.pathname === "/favicon.ico" ||
+    req.nextUrl.pathname === "/privacidade" ||
+    req.nextUrl.pathname === "/termos";
 
   if (!isLoggedIn && !isPublic) {
     const url = new URL("/login", req.nextUrl.origin);
