@@ -45,6 +45,7 @@ import {
   updateUserRoleAction,
 } from "@/app/actions/settings";
 import {
+  getBackgroundJobsAction,
   startDeleteSyncedGoogleEventsJobAction,
   startSyncGoogleIntegrationJobAction,
 } from "@/app/actions/background-jobs";
@@ -91,6 +92,12 @@ export function SettingsView({
   const [confirmSyncGoogle, setConfirmSyncGoogle] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [activeJobTitle, setActiveJobTitle] = useState<string | null>(null);
+  useEffect(() => {
+    getBackgroundJobsAction().then((jobs) => {
+      const running = jobs.find((j) => j.status === "pending" || j.status === "running");
+      if (running) { setActiveJobId(running.id); setActiveJobTitle(running.title); }
+    }).catch(() => {});
+  }, []);
 
   async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
