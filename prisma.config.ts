@@ -1,7 +1,12 @@
 import "dotenv/config";
 import { defineConfig, env } from "prisma/config";
 
-const databaseUrl = env("DATABASE_URL").replace(
+const rawDatabaseUrl =
+  process.env.DIRECT_DATABASE_URL ??
+  process.env.DATABASE_URL_UNPOOLED ??
+  env("DATABASE_URL");
+
+const databaseUrl = rawDatabaseUrl.replace(
   /sslmode=(prefer|require|verify-ca)/g,
   "sslmode=verify-full",
 );
