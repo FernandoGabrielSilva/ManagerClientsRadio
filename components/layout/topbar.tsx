@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Bell, Menu, LayoutDashboard, Users, CalendarDays, FileText, Settings, LogOut, Radio, Trash2 } from "lucide-react";
+import { Bell, Menu, LayoutDashboard, Users, CalendarDays, FileText, Settings, LogOut, Radio, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -10,6 +10,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { getUnreadNotificationsAction } from "@/app/actions/notifications";
+import { getBackgroundJobsAction } from "@/app/actions/background-jobs";
+import { BackgroundJobStatus } from "@/components/settings/background-job-status";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -25,7 +27,21 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [jobs, setJobs] = useState<any[]>([]);
   const initials = (user.name ?? user.email ?? "U").slice(0, 2).toUpperCase();
+
+  useEffect(() => {
+    let active = true;
+    async function loadJobs() {
+      try {
+        const j = await getBackgroundJobsAction();
+        if (active) setJobs(j as any[]);
+      } catch {}
+    }
+    loadJobs();
+    const t = setInterval(loadJobs, 4000);
+    return () => { active = false; clearInterval(t); };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
@@ -122,6 +138,20 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
         <span className="text-sm font-medium text-muted-foreground hidden sm:inline">Painel de gestão</span>
       </div>
       <div className="flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-muted relative" aria-label="Progresso">
+            {jobs.some((j) => j.status === "pending" || j.status === "running") ? <Loader2 className="h-4 w-4 animate-spin" /> : <Loader2 className="h-4 w-4 opacity-50" />}
+            {jobs.some((j) => j.status === "pending" || j.status === "running") && <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-sm sm:w-96 p-2">
+            <DropdownMenuGroup><DropdownMenuLabel>Progresso em segundo plano</DropdownMenuLabel></DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <div className="space-y-2 max-h-96 overflow-y-auto p-1">
+              {jobs.length === 0 && <div className="px-2 py-4 text-sm text-muted-foreground text-center">Nenhuma tarefa recente.</div>}
+              {jobs.map((j) => <BackgroundJobStatus key={j.id} jobId={j.id} onDone={() => { getBackgroundJobsAction().then((r) => setJobs(r as any[])).catch(() => {}); }} />)}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-muted relative" aria-label="Notificações">
               <Bell className="h-4 w-4" />
