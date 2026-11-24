@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ExportButton, ImportButton, ExportPdfButton } from "@/components/import-export";
-import { importClientsAction } from "@/app/actions/clients";
+import { importClientsAction, getAllClientsForExportAction } from "@/app/actions/clients";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/clients/client-form";
@@ -14,7 +14,7 @@ import { Plus, Users } from "lucide-react";
 export function ClientsToolbar({ clients, exportClients, vendors, view = "active" }: { clients: any[]; exportClients?: any[]; vendors?: { id: string; name: string | null }[]; view?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const exportSource = exportClients ?? clients;
+  const [exporting, setExporting] = useState(false);
   const exportHeaders = [
     "Cliente / anunciante",
     "Responsável",
@@ -30,36 +30,46 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
     "Conferência de datas",
     "Dias Vídeo",
   ];
-  const exportRows = exportSource.map((c) => [
-    c.name ?? "",
-    c.responsible ?? "",
-    c.contactName ?? "",
-    c.phone ?? "",
-    c.commercialStatus ?? c.contractStatus ?? "",
-    c.contractValue ?? "",
-    c.lastContactAt ? new Date(c.lastContactAt).toLocaleDateString("pt-BR") : "",
-    c.contactType ?? "",
-    c.nextAction ?? "",
-    c.nextActionDate ? new Date(c.nextActionDate).toLocaleDateString("pt-BR") : "",
-    c.notes ?? "",
-    c.dateConference ?? "",
-    c.videoWeekday ?? "",
-  ]);
-  const exportData = exportSource.map((c) => ({
-    "Cliente / anunciante": c.name,
-    "Responsável": c.responsible,
-    "Contato / decisor": c.contactName,
-    "WhatsApp": c.phone,
-    "Situação comercial": c.commercialStatus ?? c.contractStatus,
-    "Valor proposto (R$)": c.contractValue,
-    "Último contato": c.lastContactAt,
-    "Tipo de contato": c.contactType,
-    "Próxima ação": c.nextAction,
-    "Data próxima ação": c.nextActionDate,
-    "Histórico / observações": c.notes,
-    "Conferência de datas": c.dateConference,
-    "Dias Vídeo": c.videoWeekday,
-  }));
+
+  async function getExportData() {
+    setExporting(true);
+    try {
+      const source = exportClients ?? await getAllClientsForExportAction();
+      const exportRows = source.map((c: any) => [
+        c.name ?? "",
+        c.responsible ?? "",
+        c.contactName ?? "",
+        c.phone ?? "",
+        c.commercialStatus ?? c.contractStatus ?? "",
+        c.contractValue ?? "",
+        c.lastContactAt ? new Date(c.lastContactAt).toLocaleDateString("pt-BR") : "",
+        c.contactType ?? "",
+        c.nextAction ?? "",
+        c.nextActionDate ? new Date(c.nextActionDate).toLocaleDateString("pt-BR") : "",
+        c.notes ?? "",
+        c.dateConference ? new Date(c.dateConference).toLocaleDateString("pt-BR") : (c.dateConference ?? ""),
+        c.videoWeekday ?? "",
+      ]);
+      const exportData = source.map((c: any) => ({
+        "Cliente / anunciante": c.name,
+        "Responsável": c.responsible,
+        "Contato / decisor": c.contactName,
+        "WhatsApp": c.phone,
+        "Situação comercial": c.commercialStatus ?? c.contractStatus,
+        "Valor proposto (R$)": c.contractValue,
+        "Último contato": c.lastContactAt,
+        "Tipo de contato": c.contactType,
+        "Próxima ação": c.nextAction,
+        "Data próxima ação": c.nextActionDate,
+        "Histórico / observações": c.notes,
+        "Conferência de datas": c.dateConference,
+        "Dias Vídeo": c.videoWeekday,
+      }));
+      return { exportRows, exportData };
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function handleImport(rows: any[]) {
     const res = await importClientsAction(rows);
@@ -94,11 +104,11 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
           filename="clientes.xlsx"
           sheetName="Clientes"
           headers={exportHeaders}
-          rows={exportRows}
+          getExportData={getExportData}
           columnWidths={[28, 22, 22, 18, 22, 14, 14, 16, 22, 16, 50, 18, 14]}
-          data={exportData}
+          loading={exporting}
         />
-        <ExportPdfButton data={exportData} filename="clientes.pdf" columns={Object.keys(exportData[0] ?? {}).map((k) => ({ header: k, dataKey: k }))} />
+        <ExportPdfButton getData={async () => (await getExportData()).exportData} filename="clientes.pdf" columns={exportHeaders.map((h) => ({ header: h, dataKey: h }))} loading={exporting} />
         <ImportButton onImport={handleImport} />
         <Dialog open={open} onOpenChange={setOpen}>
           <Button onClick={() => setOpen(true)} className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Novo cliente</Button>

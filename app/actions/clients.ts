@@ -225,6 +225,29 @@ function toNumberValue(v: any): number | null {
   return isNaN(n) ? null : n;
 }
 
+export async function getAllClientsForExportAction() {
+  const session = await auth();
+  const userId = session!.user!.id as string;
+  const role = (session!.user as { role?: string }).role;
+  const where = role === "admin" ? {} : { OR: [{ userId }, { vendorId: userId }] };
+  const clients = await prisma.client.findMany({ where, orderBy: { name: "asc" }, include: { vendor: true } });
+  return clients.map((c) => ({
+    name: c.name,
+    responsible: c.responsible,
+    contactName: c.contactName,
+    phone: c.phone,
+    commercialStatus: c.commercialStatus ?? c.contractStatus,
+    contractValue: c.contractValue,
+    lastContactAt: c.lastContactAt?.toISOString() ?? null,
+    contactType: c.contactType,
+    nextAction: c.nextAction,
+    nextActionDate: c.nextActionDate?.toISOString() ?? null,
+    notes: c.notes,
+    dateConference: c.dateConference?.toISOString() ?? null,
+    videoWeekday: c.videoWeekday,
+  }));
+}
+
 export async function importClientsAction(rows: any[]) {
   const session = await auth();
   const userId = session!.user!.id as string;

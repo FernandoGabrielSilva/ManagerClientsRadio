@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { ExportButton, ImportButton, ExportPdfButton } from "@/components/import-export";
-import { importContractsAction } from "@/app/actions/contracts";
+import { importContractsAction, getAllContractsForExportAction } from "@/app/actions/contracts";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import Link from "next/link";
@@ -10,7 +11,7 @@ import { Plus, FileText as FileTextIcon } from "lucide-react";
 
 export function ContractsToolbar({ contracts, exportContracts, view = "active" }: { contracts: any[]; exportContracts?: any[]; view?: string }) {
   const router = useRouter();
-  const exportSource = exportContracts ?? contracts;
+  const [exporting, setExporting] = useState(false);
   const exportHeaders = [
     "Número",
     "Cliente",
@@ -22,28 +23,38 @@ export function ContractsToolbar({ contracts, exportContracts, view = "active" }
     "Valor",
     "Status",
   ];
-  const exportRows = exportSource.map((c) => [
-    c.number ?? "",
-    c.client?.name ?? "",
-    c.mediaType ?? "",
-    c.startDate ? new Date(c.startDate).toLocaleDateString("pt-BR") : "",
-    c.endDate ? new Date(c.endDate).toLocaleDateString("pt-BR") : "",
-    c.insertions ?? "",
-    c.timeSlots ?? "",
-    c.value ?? "",
-    c.status ?? "",
-  ]);
-  const exportData = exportSource.map((c) => ({
-    Número: c.number,
-    Cliente: c.client?.name,
-    Tipo: c.mediaType,
-    Início: c.startDate,
-    Término: c.endDate,
-    Inserções: c.insertions,
-    Horários: c.timeSlots,
-    Valor: c.value,
-    Status: c.status,
-  }));
+
+  async function getExportData() {
+    setExporting(true);
+    try {
+      const source = exportContracts ?? await getAllContractsForExportAction();
+      const exportRows = source.map((c: any) => [
+        c.number ?? "",
+        c.client?.name ?? c.clientName ?? "",
+        c.mediaType ?? "",
+        c.startDate ? new Date(c.startDate).toLocaleDateString("pt-BR") : "",
+        c.endDate ? new Date(c.endDate).toLocaleDateString("pt-BR") : "",
+        c.insertions ?? "",
+        c.timeSlots ?? "",
+        c.value ?? "",
+        c.status ?? "",
+      ]);
+      const exportData = source.map((c: any) => ({
+        "Número": c.number,
+        "Cliente": c.client?.name ?? c.clientName,
+        "Tipo": c.mediaType,
+        "Início": c.startDate,
+        "Término": c.endDate,
+        "Inserções": c.insertions,
+        "Horários": c.timeSlots,
+        "Valor": c.value,
+        "Status": c.status,
+      }));
+      return { exportRows, exportData };
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function handleImport(rows: any[]) {
     const res = await importContractsAction(rows);
@@ -78,11 +89,11 @@ export function ContractsToolbar({ contracts, exportContracts, view = "active" }
           filename="contratos.xlsx"
           sheetName="Contratos"
           headers={exportHeaders}
-          rows={exportRows}
+          getExportData={getExportData}
           columnWidths={[18, 28, 18, 14, 14, 12, 24, 14, 16]}
-          data={exportData}
+          loading={exporting}
         />
-        <ExportPdfButton data={exportData} filename="contratos.pdf" columns={Object.keys(exportData[0] ?? {}).map((k) => ({ header: k, dataKey: k }))} />
+        <ExportPdfButton getData={async () => (await getExportData()).exportData} filename="contratos.pdf" columns={exportHeaders.map((h) => ({ header: h, dataKey: h }))} loading={exporting} />
         <ImportButton onImport={handleImport} />
         <Link href="/contracts/new" className="w-full sm:w-auto"><Button className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Novo contrato</Button></Link>
       </div>

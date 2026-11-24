@@ -113,6 +113,25 @@ export async function addContactHistoryAction(clientId: string, summary: string)
   return { success: true };
 }
 
+export async function getAllContractsForExportAction() {
+  const session = await auth();
+  const userId = session!.user!.id as string;
+  const role = (session!.user as { role?: string }).role;
+  const where = role === "admin" ? {} : { vendorId: userId };
+  const contracts = await prisma.contract.findMany({ where, include: { client: true, vendor: true }, orderBy: { endDate: "asc" } });
+  return contracts.map((c) => ({
+    number: c.number,
+    clientName: c.client?.name ?? "",
+    mediaType: c.mediaType,
+    startDate: c.startDate?.toISOString() ?? null,
+    endDate: c.endDate?.toISOString() ?? null,
+    insertions: c.insertions,
+    timeSlots: c.timeSlots,
+    value: c.value,
+    status: c.status,
+  }));
+}
+
 export async function importContractsAction(rows: any[]) {
   const userId = await getUserId();
   let count = 0;

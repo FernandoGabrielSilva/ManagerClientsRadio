@@ -6,31 +6,35 @@ import { Button } from "@/components/ui/button";
 import { Upload, Download } from "lucide-react";
 import { exportStyledXlsx } from "@/lib/export-excel";
 
-type ExportButtonProps =
-  | { data: any[]; filename: string; sheetName?: string }
-  | {
-      data: any[];
-      filename: string;
-      styled: true;
-      sheetName: string;
-      headers: string[];
-      rows: (string | number | null | undefined)[][];
-      columnWidths?: number[];
-    };
+type StyledExportProps = {
+  data?: any[];
+  getExportData?: () => Promise<{ exportRows: (string | number | null | undefined)[][]; exportData?: any[] }>;
+  filename: string;
+  styled: true;
+  sheetName: string;
+  headers: string[];
+  rows?: (string | number | null | undefined)[][];
+  columnWidths?: number[];
+  loading?: boolean;
+};
+type PlainExportProps = { data?: any[]; getData?: () => Promise<any[]> | any[]; filename: string; sheetName?: string; loading?: boolean };
+type ExportButtonProps = PlainExportProps | StyledExportProps;
 
 export function ExportButton(props: ExportButtonProps) {
-  function handle() {
-    if ("styled" in props && props.styled) {
+  async function handle() {
+    if ("styled" in props) {
+      const resolved = props.getExportData ? await props.getExportData() : { exportRows: props.rows ?? [] };
       exportStyledXlsx({
         filename: props.filename,
         sheetName: props.sheetName,
         headers: props.headers,
-        rows: props.rows,
+        rows: resolved.exportRows,
         columnWidths: props.columnWidths,
       });
       return;
     }
-    const ws = XLSX.utils.json_to_sheet(props.data);
+    const data = props.getData ? await props.getData() : (props.data ?? []);
+    const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Dados");
     const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -43,8 +47,8 @@ export function ExportButton(props: ExportButtonProps) {
     URL.revokeObjectURL(url);
   }
   return (
-    <Button variant="outline" onClick={handle} className="w-full sm:w-auto">
-      <Download className="h-4 w-4 mr-2" /> Exportar Excel
+    <Button variant="outline" onClick={handle} disabled={props.loading} className="w-full sm:w-auto">
+      <Download className="h-4 w-4 mr-2" /> {props.loading ? "Exportando..." : "Exportar Excel"}
     </Button>
   );
 }
@@ -94,15 +98,16 @@ export function ImportButton({ onImport }: { onImport: (rows: any[]) => Promise<
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-export function ExportPdfButton({ data, filename, columns }: { data: any[]; filename: string; columns: { header: string; dataKey: string }[] }) {
-  function handle() {
+export function ExportPdfButton({ data, getData, filename, columns, loading }: { data?: any[]; getData?: () => Promise<any[]> | any[]; filename: string; columns: { header: string; dataKey: string }[]; loading?: boolean }) {
+  async function handle() {
+    const rows = getData ? await getData() : (data ?? []);
     const doc = new jsPDF();
-    autoTable(doc, { head: [columns.map((c) => c.header)], body: data.map((row) => columns.map((c) => row[c.dataKey] ?? "")) });
+    autoTable(doc, { head: [columns.map((c) => c.header)], body: rows.map((row) => columns.map((c) => row[c.dataKey] ?? "")) });
     doc.save(filename);
   }
   return (
-    <Button variant="outline" onClick={handle} className="w-full sm:w-auto">
-      <Download className="h-4 w-4 mr-2" /> Exportar PDF
+    <Button variant="outline" onClick={handle} disabled={loading} className="w-full sm:w-auto">
+      <Download className="h-4 w-4 mr-2" /> {loading ? "Exportando..." : "Exportar PDF"}
     </Button>
   );
 }
