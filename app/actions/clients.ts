@@ -248,14 +248,67 @@ export async function getAllClientsForExportAction() {
   }));
 }
 
+function normImportText(v: unknown) { return String(v ?? "").trim().replace(/\s+/g, " ").toLowerCase(); }
+function normImportDate(v: unknown) { const d = toDateValue(v); return d ? d.toISOString().slice(0, 10) : ""; }
+function normImportNum(v: unknown) { const n = toNumberValue(v); return n == null ? "" : String(n); }
+
+function clientImportKey(r: Record<string, any>) {
+  const contractStatus = (["active", "paused", "ended", "negotiation"].includes(String(r.contractStatus)) ? String(r.contractStatus) : "active");
+  return [
+    normImportText(r.name ?? r["Cliente / anunciante"] ?? r.Nome ?? "Sem nome"),
+    normImportText(r.responsible ?? r["Responsável"]),
+    normImportText(r.contactName ?? r["Contato / decisor"] ?? r.Contato),
+    normImportText(r.phone ?? r.WhatsApp ?? r.Telefone),
+    normImportText(r.email ?? r.Email),
+    normImportText(r.commercialStatus ?? r["Situação comercial"]),
+    normImportNum(r.contractValue ?? r["Valor proposto (R$)"]),
+    normImportDate(r.lastContactAt ?? r["Último contato"]),
+    normImportText(r.contactType ?? r["Tipo de contato"]),
+    normImportText(r.nextAction ?? r["Próxima ação"]),
+    normImportDate(r.nextActionDate ?? r["Data próxima ação"]),
+    normImportText(r.notes ?? r["Histórico / observações"] ?? r.Observações),
+    normImportDate(r.dateConference ?? r["Conferência de datas"]),
+    String(Math.max(0, Math.min(127, Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1) || 1))),
+    String(Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? 14) || 14))),
+    contractStatus,
+  ].join("|");
+}
+
+function existingClientKey(c: any) {
+  return [
+    normImportText(c.name),
+    normImportText(c.responsible),
+    normImportText(c.contactName),
+    normImportText(c.phone),
+    normImportText(c.email),
+    normImportText(c.commercialStatus),
+    normImportNum(c.contractValue),
+    normImportDate(c.lastContactAt),
+    normImportText(c.contactType),
+    normImportText(c.nextAction),
+    normImportDate(c.nextActionDate),
+    normImportText(c.notes),
+    normImportDate(c.dateConference),
+    String(Math.max(0, Math.min(127, Number(c.videoWeekday ?? 1) || 1))),
+    String(Math.max(1, Math.min(365, Number(c.contactFrequencyDays ?? 14) || 14))),
+    String(c.contractStatus ?? "active"),
+  ].join("|");
+}
+
 export async function importClientsAction(rows: any[]) {
   const session = await auth();
-  const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
-  let count = 0;
+  if (!session?.user?.id) throw new Error("Não autenticado");
+  const userId = session.user.id as string;
+  const role = (session.user as any).role;
   const safeRows = Array.isArray(rows) ? rows.slice(0, 500) : [];
+  const existing = await prisma.client.findMany({ where: { userId } });
+  const seen = new Set(existing.map(existingClientKey));
+  let count = 0;
+  let skipped = 0;
   for (const r of safeRows) {
-    if (!r || typeof r !== "object") continue;
+    if (!r || typeof r !== "object") { skipped++; continue; }
+    const key = clientImportKey(r);
+    if (seen.has(key)) { skipped++; continue; }
     const name = String(r.name ?? r["Cliente / anunciante"] ?? r.Nome ?? "Sem nome").slice(0, 200);
     await prisma.client.create({
       data: {
@@ -279,9 +332,10 @@ export async function importClientsAction(rows: any[]) {
         lastContactAt: toDateValue(r.lastContactAt ?? r["Último contato"]),
       },
     });
+    seen.add(key);
     count++;
   }
   await ensureClientContactEventsForUser(userId, role);
   revalidatePath("/clients");
-  return { success: true, count };
+  return { success: true, count, skipped, total: safeRows.length };
 }

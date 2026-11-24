@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ExportButton, ImportButton, ExportPdfButton } from "@/components/import-export";
-import { importClientsAction, getAllClientsForExportAction } from "@/app/actions/clients";
+import { getAllClientsForExportAction } from "@/app/actions/clients";
+import { startImportClientsJobAction } from "@/app/actions/background-jobs";
+import { BackgroundJobStatus } from "@/components/settings/background-job-status";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/clients/client-form";
@@ -15,6 +17,7 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [importJobId, setImportJobId] = useState<string | null>(null);
   const exportHeaders = [
     "Cliente / anunciante",
     "Responsável",
@@ -85,9 +88,9 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
   }
 
   async function handleImport(rows: Record<string, unknown>[]) {
-    const res = await importClientsAction(rows);
-    toast.add({ title: "Importação", description: `Importados ${res?.count ?? 0} clientes` });
-    router.refresh();
+    const res = await startImportClientsJobAction(rows);
+    setImportJobId(res.jobId);
+    toast.add({ title: "Importação iniciada", description: "Acompanhe o progresso abaixo." });
   }
 
   return (
@@ -112,6 +115,7 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
           ))}
         </div>
       <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+        {importJobId && <div className="w-full sm:w-80"><BackgroundJobStatus jobId={importJobId} onDone={(j) => { toast.add({ title: "Importação concluída", description: j.message ?? undefined }); setImportJobId(null); router.refresh(); }} /></div>}
         <ExportButton
           styled
           filename="clientes.xlsx"
