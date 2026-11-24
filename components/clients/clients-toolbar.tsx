@@ -11,7 +11,7 @@ import { toast } from "@/components/ui/toast";
 import Link from "next/link";
 import { Plus, Users } from "lucide-react";
 
-export function ClientsToolbar({ clients, exportClients, vendors, view = "active" }: { clients: any[]; exportClients?: any[]; vendors?: { id: string; name: string | null }[]; view?: string }) {
+export function ClientsToolbar({ clients, exportClients, vendors, view = "active" }: { clients: Array<Record<string, unknown>>; exportClients?: Array<Record<string, unknown>>; vendors?: { id: string; name: string | null }[]; view?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -35,7 +35,7 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
     setExporting(true);
     try {
       const source = exportClients ?? await getAllClientsForExportAction();
-      const exportRows = source.map((c: any) => [
+      const exportRows = source.map((c: Record<string, unknown>) => [
         c.name ?? "",
         c.responsible ?? "",
         c.contactName ?? "",
@@ -50,7 +50,7 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
         c.dateConference ? new Date(c.dateConference).toLocaleDateString("pt-BR") : (c.dateConference ?? ""),
         c.videoWeekday ?? "",
       ]);
-      const exportData = source.map((c: any) => ({
+      const exportData = source.map((c: Record<string, unknown>) => ({
         "Cliente / anunciante": c.name,
         "Responsável": c.responsible,
         "Contato / decisor": c.contactName,
@@ -71,7 +71,7 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
     }
   }
 
-  async function handleImport(rows: any[]) {
+  async function handleImport(rows: Record<string, unknown>[]) {
     const res = await importClientsAction(rows);
     toast.add({ title: "Importação", description: `Importados ${res?.count ?? 0} clientes` });
     router.refresh();
@@ -103,6 +103,8 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
           styled
           filename="clientes.xlsx"
           sheetName="Clientes"
+          title="BACABAL FM 90.1  |  CLIENTES"
+          subtitle="Base de clientes e prospecção"
           headers={exportHeaders}
           getExportData={getExportData}
           columnWidths={[28, 22, 22, 18, 22, 14, 14, 16, 22, 16, 50, 18, 14]}

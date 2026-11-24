@@ -9,7 +9,7 @@ import { toast } from "@/components/ui/toast";
 import Link from "next/link";
 import { Plus, FileText as FileTextIcon } from "lucide-react";
 
-export function ContractsToolbar({ contracts, exportContracts, view = "active" }: { contracts: any[]; exportContracts?: any[]; view?: string }) {
+export function ContractsToolbar({ contracts, exportContracts, view = "active" }: { contracts: Array<Record<string, unknown>>; exportContracts?: Array<Record<string, unknown>>; view?: string }) {
   const router = useRouter();
   const [exporting, setExporting] = useState(false);
   const exportHeaders = [
@@ -28,7 +28,7 @@ export function ContractsToolbar({ contracts, exportContracts, view = "active" }
     setExporting(true);
     try {
       const source = exportContracts ?? await getAllContractsForExportAction();
-      const exportRows = source.map((c: any) => [
+      const exportRows = source.map((c: Record<string, unknown>) => [
         c.number ?? "",
         c.client?.name ?? c.clientName ?? "",
         c.mediaType ?? "",
@@ -39,7 +39,7 @@ export function ContractsToolbar({ contracts, exportContracts, view = "active" }
         c.value ?? "",
         c.status ?? "",
       ]);
-      const exportData = source.map((c: any) => ({
+      const exportData = source.map((c: Record<string, unknown>) => ({
         "Número": c.number,
         "Cliente": c.client?.name ?? c.clientName,
         "Tipo": c.mediaType,
@@ -56,7 +56,7 @@ export function ContractsToolbar({ contracts, exportContracts, view = "active" }
     }
   }
 
-  async function handleImport(rows: any[]) {
+  async function handleImport(rows: Record<string, unknown>[]) {
     const res = await importContractsAction(rows);
     toast.add({ title: "Importação", description: `Importados ${res?.count ?? 0} contratos` });
     router.refresh();
@@ -88,6 +88,8 @@ export function ContractsToolbar({ contracts, exportContracts, view = "active" }
           styled
           filename="contratos.xlsx"
           sheetName="Contratos"
+          title="BACABAL FM 90.1  |  CONTRATOS"
+          subtitle="Controle de contratos"
           headers={exportHeaders}
           getExportData={getExportData}
           columnWidths={[18, 28, 18, 14, 14, 12, 24, 14, 16]}

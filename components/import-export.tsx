@@ -7,17 +7,19 @@ import { Upload, Download } from "lucide-react";
 import { exportStyledXlsx } from "@/lib/export-excel";
 
 type StyledExportProps = {
-  data?: any[];
-  getExportData?: () => Promise<{ exportRows: (string | number | null | undefined)[][]; exportData?: any[] }>;
+  data?: Record<string, unknown>[];
+  getExportData?: () => Promise<{ exportRows: (string | number | null | undefined)[][]; exportData?: Record<string, unknown>[] }>;
   filename: string;
   styled: true;
   sheetName: string;
   headers: string[];
   rows?: (string | number | null | undefined)[][];
   columnWidths?: number[];
+  title?: string;
+  subtitle?: string;
   loading?: boolean;
 };
-type PlainExportProps = { data?: any[]; getData?: () => Promise<any[]> | any[]; filename: string; sheetName?: string; loading?: boolean };
+type PlainExportProps = { data?: Record<string, unknown>[]; getData?: () => Promise<Record<string, unknown>[]> | Record<string, unknown>[]; filename: string; sheetName?: string; loading?: boolean };
 type ExportButtonProps = PlainExportProps | StyledExportProps;
 
 export function ExportButton(props: ExportButtonProps) {
@@ -30,6 +32,8 @@ export function ExportButton(props: ExportButtonProps) {
         headers: props.headers,
         rows: resolved.exportRows,
         columnWidths: props.columnWidths,
+        title: props.title,
+        subtitle: props.subtitle,
       });
       return;
     }
@@ -57,7 +61,7 @@ function filenameSafe(name: string) {
   return name || "export.xlsx";
 }
 
-export function ImportButton({ onImport }: { onImport: (rows: any[]) => Promise<void> }) {
+export function ImportButton({ onImport }: { onImport: (rows: Record<string, unknown>[]) => Promise<void> }) {
   const ref = useRef<HTMLInputElement>(null);
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -66,22 +70,23 @@ export function ImportButton({ onImport }: { onImport: (rows: any[]) => Promise<
     const wb = XLSX.read(buf, { type: "array", cellDates: true });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
-    let headerIndex = raw.findIndex((r: any) => Array.isArray(r) && r.some((c: any) => {
+    let headerIndex = raw.findIndex((r: unknown) => Array.isArray(r) && r.some((c: unknown) => {
       const v = String(c ?? "").toLowerCase();
       return v.includes("cliente") || v === "nome" || v === "name" || v.includes("anunciante");
     }));
     if (headerIndex === -1) headerIndex = 0;
-    const headers = (raw[headerIndex] as any[]) || [];
+    const headers = (raw[headerIndex] as unknown[]) || [];
     const dataRows = raw.slice(headerIndex + 1);
     const rows = dataRows
-      .map((r: any) => {
-        const obj: any = {};
-        headers.forEach((h: any, i: number) => {
-          if (h != null && String(h).trim() !== "") obj[String(h).trim()] = r?.[i] ?? null;
+      .map((r: unknown) => {
+        const obj: Record<string, unknown> = {};
+        const row = Array.isArray(r) ? r : [];
+        headers.forEach((h: unknown, i: number) => {
+          if (h != null && String(h).trim() !== "") obj[String(h).trim()] = row[i] ?? null;
         });
-        return JSON.parse(JSON.stringify(obj));
+        return JSON.parse(JSON.stringify(obj)) as Record<string, unknown>;
       })
-      .filter((r: any) => Object.values(r).some((v: any) => v != null && String(v).trim() !== ""));
+      .filter((r) => Object.values(r).some((v) => v != null && String(v).trim() !== ""));
     await onImport(rows);
     if (ref.current) ref.current.value = "";
   }
@@ -98,7 +103,7 @@ export function ImportButton({ onImport }: { onImport: (rows: any[]) => Promise<
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-export function ExportPdfButton({ data, getData, filename, columns, loading }: { data?: any[]; getData?: () => Promise<any[]> | any[]; filename: string; columns: { header: string; dataKey: string }[]; loading?: boolean }) {
+export function ExportPdfButton({ data, getData, filename, columns, loading }: { data?: Record<string, unknown>[]; getData?: () => Promise<Record<string, unknown>[]> | Record<string, unknown>[]; filename: string; columns: { header: string; dataKey: string }[]; loading?: boolean }) {
   async function handle() {
     const rows = getData ? await getData() : (data ?? []);
     const doc = new jsPDF();
