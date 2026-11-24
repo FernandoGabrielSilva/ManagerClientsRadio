@@ -43,9 +43,12 @@ import {
   updateNotificationPrefsAction,
   disconnectGoogleAction,
   updateUserRoleAction,
-  deleteAllSyncedGoogleEventsAction,
-  syncGoogleIntegrationAction,
 } from "@/app/actions/settings";
+import {
+  startDeleteSyncedGoogleEventsJobAction,
+  startSyncGoogleIntegrationJobAction,
+} from "@/app/actions/background-jobs";
+import { BackgroundJobStatus } from "@/components/settings/background-job-status";
 
 export function SettingsView({
   user,
@@ -85,8 +88,9 @@ export function SettingsView({
     }
   }, []);
   const [confirmDeleteGoogle, setConfirmDeleteGoogle] = useState(false);
-  const [deletingGoogle, setDeletingGoogle] = useState(false);
-  const [syncingGoogle, setSyncingGoogle] = useState(false);
+  const [confirmSyncGoogle, setConfirmSyncGoogle] = useState(false);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [activeJobTitle, setActiveJobTitle] = useState<string | null>(null);
 
   async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -210,36 +214,20 @@ export function SettingsView({
     toast.add({ title: "Notificação de teste enviada" });
   }
 
-  async function deleteSyncedGoogleEvents() {
-    setDeletingGoogle(true);
-    try {
-      const res = await deleteAllSyncedGoogleEventsAction();
-      setConfirmDeleteGoogle(false);
-      toast.add({
-        title: "Eventos removidos",
-        description: `${res.deleted ?? 0} de ${res.total ?? 0} removidos no Google${res.failed ? `, ${res.failed} falha(s)` : ""}`,
-      });
-    } finally {
-      setDeletingGoogle(false);
-    }
+  async function startDeleteSyncedGoogleEvents() {
+    const res = await startDeleteSyncedGoogleEventsJobAction();
+    setConfirmDeleteGoogle(false);
+    setActiveJobId(res.jobId);
+    setActiveJobTitle("Apagar eventos do site no Google");
+    toast.add({ title: "Remoção iniciada", description: "Acompanhe o progresso abaixo." });
   }
 
-  async function syncGoogle() {
-    setSyncingGoogle(true);
-    try {
-      const res = await syncGoogleIntegrationAction();
-      if (res.error) {
-        toast.add({ title: "Erro ao sincronizar", description: res.error });
-        return;
-      }
-      const desc = res.autoCreateEvents
-        ? `${res.deleted ?? 0} removido(s), ${res.pushed ?? 0} recriado(s)${(res.deleteFailed || res.pushErrors?.length) ? `, ${(res.deleteFailed ?? 0) + (res.pushErrors?.length ?? 0)} falha(s)` : ""}`
-        : `${res.deleted ?? 0} removido(s) do Google. Criação automática desativada: nada foi reenviado.`;
-      toast.add({ title: "Sincronização concluída", description: desc });
-      router.refresh();
-    } finally {
-      setSyncingGoogle(false);
-    }
+  async function startSyncGoogle() {
+    const res = await startSyncGoogleIntegrationJobAction();
+    setConfirmSyncGoogle(false);
+    setActiveJobId(res.jobId);
+    setActiveJobTitle("Sincronizar Google Agenda");
+    toast.add({ title: "Sincronização iniciada", description: "Acompanhe o progresso abaixo." });
   }
 
   const tabs = [
@@ -453,23 +441,37 @@ export function SettingsView({
                     Conectar Google
                   </Button>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={syncGoogle} disabled={syncingGoogle}>
-                      {syncingGoogle && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      {syncingGoogle ? "Sincronizando..." : "Sincronizar agora"}
-                    </Button>
-                    <Button variant="destructive" onClick={() => setConfirmDeleteGoogle(true)} disabled={deletingGoogle}>
-                      Apagar eventos do site no Google
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      onClick={async () => {
-                        await disconnectGoogleAction();
-                        router.refresh();
-                      }}
-                    >
-                      Desconectar
-                    </Button>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" onClick={() => setConfirmSyncGoogle(true)} disabled={!!activeJobId}>
+                        Sincronizar agora
+                      </Button>
+                      <Button variant="destructive" onClick={() => setConfirmDeleteGoogle(true)} disabled={!!activeJobId}>
+                        Apagar eventos do site no Google
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={async () => {
+                          await disconnectGoogleAction();
+                          router.refresh();
+                        }}
+                      >
+                        Desconectar
+                      </Button>
+                    </div>
+                    {activeJobId && (
+                      <BackgroundJobStatus
+                        jobId={activeJobId}
+                        onDone={(job) => {
+                          toast.add({
+                            title: job.status === "completed" ? "Tarefa concluída" : "Tarefa finalizada",
+                            description: job.message ?? job.title,
+                          });
+                          setActiveJobId(null);
+                          router.refresh();
+                        }}
+                      />
+                    )}
                   </div>
                 )}
                 <form onSubmit={saveGooglePrefs} className="flex flex-col gap-4 max-w-md pt-4">
@@ -600,15 +602,31 @@ export function SettingsView({
           <DialogHeader>
             <DialogTitle>Apagar eventos do site no Google Agenda</DialogTitle>
             <DialogDescription>
-              Serão removidos apenas os eventos criados pelo site (que possuem vínculo). Eventos já existentes no Google Agenda não serão afetados. Os eventos locais serão mantidos.
+              Serão removidos apenas os eventos criados pelo site (que possuem vínculo no banco). Eventos já existentes no Google Agenda não serão afetados. Os eventos locais serão mantidos.
             </DialogDescription>
           </DialogHeader>
+          {activeJobId && activeJobTitle === "Apagar eventos do site no Google" && <BackgroundJobStatus jobId={activeJobId} />}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDeleteGoogle(false)} disabled={deletingGoogle}>Cancelar</Button>
-            <Button variant="destructive" onClick={deleteSyncedGoogleEvents} disabled={deletingGoogle}>
-              {deletingGoogle && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {deletingGoogle ? "Apagando..." : "Continuar"}
-            </Button>
+            <Button variant="outline" onClick={() => setConfirmDeleteGoogle(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setConfirmDeleteGoogle(false); }}>Executar em segundo plano</Button>
+            <Button variant="destructive" onClick={startDeleteSyncedGoogleEvents}>Continuar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmSyncGoogle} onOpenChange={setConfirmSyncGoogle}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sincronizar Google Agenda</DialogTitle>
+            <DialogDescription>
+              Remove do Google apenas eventos vinculados ao site e, se a criação automática estiver ativa, recria os eventos locais. Nada fora dos vínculos do site é apagado.
+            </DialogDescription>
+          </DialogHeader>
+          {activeJobId && activeJobTitle === "Sincronizar Google Agenda" && <BackgroundJobStatus jobId={activeJobId} />}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmSyncGoogle(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setConfirmSyncGoogle(false); }}>Executar em segundo plano</Button>
+            <Button onClick={startSyncGoogle}>Continuar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
