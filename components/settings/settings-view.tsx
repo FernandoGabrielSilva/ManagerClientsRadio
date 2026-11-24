@@ -522,15 +522,16 @@ export function SettingsView({
                 </div>
               </form>
               <div className="flex flex-wrap gap-2 pt-2">
-                {browserEnabled ? (
-                  <Button variant="outline" onClick={disableBrowserNotifications}>
-                    Desativar notificações do navegador
-                  </Button>
-                ) : (
-                  <Button variant="outline" onClick={enableBrowserNotifications}>
-                    Ativar notificações do navegador
-                  </Button>
-                )}
+                <div className="flex items-center justify-between">
+                  <Label>Notificações do navegador</Label>
+                  <Switch
+                    checked={browserEnabled}
+                    onCheckedChange={(v) => {
+                      if (v) enableBrowserNotifications();
+                      else disableBrowserNotifications();
+                    }}
+                  />
+                </div>
               </div>
             </div>
           )}
