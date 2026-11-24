@@ -29,22 +29,29 @@ export function hexToOklch(hex: string): { l: number; c: number; h: number } {
 
 export function idealForeground(hex: string): string {
   const { l } = hexToOklch(hex);
-  return l > 0.6 ? "oklch(0.22 0.035 255)" : "oklch(0.99 0 0)";
+  return l > 0.62 ? "oklch(0.18 0 0)" : "oklch(0.985 0 0)";
 }
 
 export function applyThemeColor(hex: string) {
   if (typeof document === "undefined") return;
   const { l, c, h } = hexToOklch(hex);
-  const fg = idealForeground(hex);
   const root = document.documentElement;
-  root.style.setProperty("--primary", `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`);
+  const dark = root.classList.contains("dark");
+  const primaryL = dark ? Math.max(l, 0.72) : Math.min(Math.max(l, 0.35), 0.58);
+  const primaryC = dark ? Math.max(c, 0.03) : c;
+  const fg = primaryL > 0.62 ? "oklch(0.18 0 0)" : "oklch(0.985 0 0)";
+  const accentL = dark ? Math.min(primaryL - 0.18, 0.42) : Math.max(primaryL + 0.28, 0.88);
+  const accentC = Math.max(primaryC * 0.45, dark ? 0.02 : 0.01);
+  const accentFg = dark ? "oklch(0.96 0 0)" : "oklch(0.22 0 0)";
+
+  root.style.setProperty("--primary", `oklch(${primaryL.toFixed(3)} ${primaryC.toFixed(3)} ${h.toFixed(1)})`);
   root.style.setProperty("--primary-foreground", fg);
-  root.style.setProperty("--ring", `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`);
-  root.style.setProperty("--accent", `oklch(${Math.max(l - 0.05, 0.1).toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`);
-  root.style.setProperty("--accent-foreground", fg);
-  root.style.setProperty("--sidebar-primary", `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`);
+  root.style.setProperty("--ring", `oklch(${primaryL.toFixed(3)} ${primaryC.toFixed(3)} ${h.toFixed(1)})`);
+  root.style.setProperty("--accent", `oklch(${accentL.toFixed(3)} ${accentC.toFixed(3)} ${h.toFixed(1)})`);
+  root.style.setProperty("--accent-foreground", accentFg);
+  root.style.setProperty("--sidebar-primary", `oklch(${primaryL.toFixed(3)} ${primaryC.toFixed(3)} ${h.toFixed(1)})`);
   root.style.setProperty("--sidebar-primary-foreground", fg);
-  root.style.setProperty("--sidebar-ring", `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`);
+  root.style.setProperty("--sidebar-ring", `oklch(${primaryL.toFixed(3)} ${primaryC.toFixed(3)} ${h.toFixed(1)})`);
 }
 
 export const THEME_PRESETS = [

@@ -11,25 +11,22 @@ export function ThemeProvider({ children, themeColor, themeMode }: { children: R
     document.documentElement.classList.forEach((c) => { if (c.startsWith("theme-")) document.documentElement.classList.remove(c); });
     const cls = preset ? (preset.name === "Padrão" ? "theme-default" : "theme-" + preset.name.toLowerCase().replace(/[^a-z]/g, "")) : "theme-default";
     document.documentElement.classList.add(cls);
-    applyThemeColor(color);
     const applyMode = () => {
       if (themeMode === "dark") document.documentElement.classList.add("dark");
       else if (themeMode === "light") document.documentElement.classList.remove("dark");
-      else {
-        if (window.matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.classList.add("dark");
-        else document.documentElement.classList.remove("dark");
-      }
+      else document.documentElement.classList.add("dark");
     };
     applyMode();
+    applyThemeColor(color);
     if (themeMode === "system" || !themeMode) {
       const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      const handler = () => applyMode();
+      const handler = () => { applyMode(); applyThemeColor(color); };
       mq.addEventListener("change", handler);
       return () => mq.removeEventListener("change", handler);
     }
   }, [themeColor, themeMode]);
   return (
-    <NextThemesProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+    <NextThemesProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       {children}
     </NextThemesProvider>
   );

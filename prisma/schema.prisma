@@ -62,7 +62,7 @@ model User {
   passwordHash          String?
   role                  UserRole  @default(vendor)
   themeColor            String    @default("#6366f1")
-  themeMode             String    @default("light")
+  themeMode             String    @default("dark")
   googleCalendarConnected Boolean @default(false)
   googleAccessToken     String?
   googleRefreshToken    String?
