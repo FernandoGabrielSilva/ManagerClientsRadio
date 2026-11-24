@@ -249,6 +249,7 @@ export function SettingsView({
     { key: "theme", label: "Tema", icon: Palette },
     { key: "integrations", label: "Integrações", icon: Plug },
     { key: "notifications", label: "Notificações", icon: Bell },
+    { key: "jobs", label: "Tarefas", icon: Loader2 },
     ...(user.role === "admin"
       ? [{ key: "users", label: "Usuários", icon: UsersIcon }]
       : []),
@@ -566,14 +567,17 @@ export function SettingsView({
               </form>
               </div>
 
-              <div className="space-y-3 max-w-md border-t pt-6">
-                <h3 className="text-base font-semibold">Tarefas em segundo plano</h3>
-                <div className="flex items-center justify-between gap-4">
-                  <Label>Limpar automaticamente quando concluído</Label>
-                  <Switch checked={autoClearCompletedJobs} onCheckedChange={async (v) => { setAutoClearCompletedJobs(v); await updateAutoClearJobsAction(v); }} />
-                </div>
-                <Button variant="outline" onClick={async () => { await clearCompletedBackgroundJobsAction(); toast.add({ title: "Tarefas concluídas limpas" }); router.refresh(); }}>Limpar tarefas concluídas</Button>
+            </div>
+          )}
+
+          {tab === "jobs" && (
+            <div className="space-y-4 max-w-md">
+              <h2 className="text-lg font-semibold">Tarefas em segundo plano</h2>
+              <div className="flex items-center justify-between gap-4">
+                <Label>Limpar automaticamente quando concluído</Label>
+                <Switch checked={autoClearCompletedJobs} onCheckedChange={async (v) => { setAutoClearCompletedJobs(v); await updateAutoClearJobsAction(v); toast.add({ title: "Preferência salva" }); }} />
               </div>
+              <p className="text-sm text-muted-foreground">O progresso aparece na bolinha do header. Use “Limpar concluídas” dentro da bolinha para remover tarefas finalizadas.</p>
             </div>
           )}
 
