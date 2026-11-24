@@ -69,6 +69,8 @@ export function SettingsView({
 }) {
   const router = useRouter();
   const [color, setColor] = useState(user.themeColor);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(user.notificationsEnabled);
+  const [autoCreateEvents, setAutoCreateEvents] = useState(user.autoCreateEvents);
   const [mode, setMode] = useState<"light" | "dark" | "system">(
     user.themeMode === "system" ? "system" : user.themeMode === "dark" ? "dark" : "light",
   );
@@ -433,14 +435,16 @@ export function SettingsView({
                   <Label>Notificações ativadas</Label>
                   <Switch
                     name="notificationsEnabled"
-                    defaultChecked={user.notificationsEnabled}
+                    checked={notificationsEnabled}
+                    onCheckedChange={setNotificationsEnabled}
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <Label>Criar eventos automaticamente</Label>
                   <Switch
                     name="autoCreateEvents"
-                    defaultChecked={user.autoCreateEvents}
+                    checked={autoCreateEvents}
+                    onCheckedChange={setAutoCreateEvents}
                   />
                 </div>
                 <div className="space-y-2">
