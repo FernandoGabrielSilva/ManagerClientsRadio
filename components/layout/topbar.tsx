@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Bell, Menu, LayoutDashboard, Users, CalendarDays, FileText, Settings, LogOut, Radio, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
+import { getUnreadNotificationsAction } from "@/app/actions/notifications";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -25,6 +26,38 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const initials = (user.name ?? user.email ?? "U").slice(0, 2).toUpperCase();
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    let seen = new Set<string>();
+    try {
+      const raw = localStorage.getItem("seenNotifIds");
+      if (raw) seen = new Set(JSON.parse(raw));
+    } catch {}
+    let cancelled = false;
+    async function check() {
+      if (Notification.permission !== "granted") return;
+      try {
+        const items = await getUnreadNotificationsAction();
+        if (cancelled) return;
+        let changed = false;
+        for (const n of items) {
+          if (!seen.has(n.id)) {
+            seen.add(n.id);
+            changed = true;
+            new Notification(n.title, { body: n.message });
+          }
+        }
+        if (changed) localStorage.setItem("seenNotifIds", JSON.stringify([...seen]));
+      } catch {}
+    }
+    check();
+    const interval = setInterval(check, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 backdrop-blur-md px-4 md:px-6">
       <div className="flex items-center gap-2">

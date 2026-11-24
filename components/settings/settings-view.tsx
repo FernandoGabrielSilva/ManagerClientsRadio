@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { THEME_PRESETS } from "@/lib/color-utils";
+import { clearNotificationsAction, markAllNotificationsReadAction } from "@/app/actions/notifications";
 import { applyThemeColor } from "@/lib/color-utils";
 import {
   updateProfileAction,
@@ -49,6 +50,7 @@ import {
 export function SettingsView({
   user,
   users,
+  notifications = [],
 }: {
   user: {
     id: string;
@@ -66,6 +68,7 @@ export function SettingsView({
     hasPassword: boolean;
   };
   users?: { id: string; name: string | null; email: string; role: string }[];
+  notifications?: { id: string; title: string; message: string; read: boolean; createdAt: Date | string }[];
 }) {
   const router = useRouter();
   const [color, setColor] = useState(user.themeColor);
@@ -75,6 +78,8 @@ export function SettingsView({
     user.themeMode === "system" ? "system" : user.themeMode === "dark" ? "dark" : "light",
   );
   const [tab, setTab] = useState("profile");
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [clearingNotifications, setClearingNotifications] = useState(false);
   const [confirmPushAll, setConfirmPushAll] = useState(false);
   const [confirmDeleteGoogle, setConfirmDeleteGoogle] = useState(false);
   const [deletingGoogle, setDeletingGoogle] = useState(false);
@@ -156,6 +161,31 @@ export function SettingsView({
     });
     toast.add({ title: "Integração salva" });
     router.refresh();
+  }
+
+  async function clearNotifications() {
+    setClearingNotifications(true);
+    try {
+      await clearNotificationsAction();
+      toast.add({ title: "Notificações limpas" });
+      router.refresh();
+    } finally {
+      setClearingNotifications(false);
+    }
+  }
+
+  async function enableBrowserNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      toast.add({ title: "Navegador não suporta notificações" });
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm === "granted") {
+      new Notification("ManagerRadio", { body: "Notificações do navegador ativadas." });
+      toast.add({ title: "Notificações ativadas" });
+    } else {
+      toast.add({ title: "Permissão negada" });
+    }
   }
 
   async function deleteSyncedGoogleEvents() {
@@ -487,6 +517,17 @@ export function SettingsView({
                   <Button type="submit">Salvar</Button>
                 </div>
               </form>
+              <div className="flex flex-wrap gap-2 pt-2">
+                <Button variant="outline" onClick={() => setShowNotifications(true)}>
+                  Ver mais
+                </Button>
+                <Button variant="destructive" onClick={clearNotifications} disabled={clearingNotifications}>
+                  {clearingNotifications ? "Limpando..." : "Limpar notificações"}
+                </Button>
+                <Button variant="outline" onClick={enableBrowserNotifications}>
+                  Ativar notificações do navegador
+                </Button>
+              </div>
             </div>
           )}
 
@@ -562,6 +603,24 @@ export function SettingsView({
               {deletingGoogle ? "Apagando..." : "Continuar"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Todas as notificações</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {notifications.length === 0 && <p className="text-sm text-muted-foreground">Sem notificações.</p>}
+            {notifications.map((n) => (
+              <div key={n.id} className={`border rounded-md p-3 ${n.read ? "opacity-60" : ""}`}>
+                <div className="font-medium text-sm">{n.title}</div>
+                <div className="text-sm text-muted-foreground">{n.message}</div>
+                <div className="text-xs text-muted-foreground mt-1">{new Date(n.createdAt).toLocaleString("pt-BR")}</div>
+              </div>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

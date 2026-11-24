@@ -24,6 +24,24 @@ export async function markAllNotificationsReadAction() {
   return { success: true };
 }
 
+export async function clearNotificationsAction() {
+  const userId = await getUserId();
+  await prisma.notification.deleteMany({ where: { userId } });
+  revalidatePath("/notifications");
+  revalidatePath("/settings");
+  return { success: true };
+}
+
+export async function getUnreadNotificationsAction() {
+  const userId = await getUserId();
+  return prisma.notification.findMany({
+    where: { userId, read: false },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: { id: true, title: true, message: true },
+  });
+}
+
 export async function getUnreadCountAction() {
   const userId = await getUserId();
   return prisma.notification.count({ where: { userId, read: false } });

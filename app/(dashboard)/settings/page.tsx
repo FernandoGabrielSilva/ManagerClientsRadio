@@ -14,5 +14,6 @@ export default async function SettingsPage() {
   });
   if (!user) return null;
   const users = user.role === "admin" ? await prisma.user.findMany({ select: { id: true, name: true, email: true, role: true }, orderBy: { name: "asc" } }) : [];
-  return <SettingsView user={{ ...user, hasPassword: !!user.passwordHash }} users={users} />;
+  const notifications = await prisma.notification.findMany({ where: { userId: session!.user!.id as string }, orderBy: { createdAt: "desc" }, take: 100 });
+  return <SettingsView user={{ ...user, hasPassword: !!user.passwordHash }} users={users} notifications={notifications} />;
 }
