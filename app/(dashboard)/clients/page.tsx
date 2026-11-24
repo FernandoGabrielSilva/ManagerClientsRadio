@@ -18,15 +18,16 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
       : view === "trash"
       ? { deletedAt: { not: null } }
       : { archivedAt: null, deletedAt: null };
-  const where =
-    role === "admin"
-      ? viewWhere
-      : { OR: [{ userId }, { vendorId: userId }], ...viewWhere };
-  const clients = await prisma.client.findMany({ where, orderBy: { name: "asc" }, include: { vendor: true } });
-  const vendors = await prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
+  const baseWhere = role === "admin" ? {} : { OR: [{ userId }, { vendorId: userId }] };
+  const where = { ...baseWhere, ...viewWhere };
+  const [clients, allClients, vendors] = await Promise.all([
+    prisma.client.findMany({ where, orderBy: { name: "asc" }, include: { vendor: true } }),
+    prisma.client.findMany({ where: baseWhere, orderBy: { name: "asc" }, include: { vendor: true } }),
+    prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
   return (
     <div className="space-y-4">
-      <ClientsToolbar clients={clients} vendors={vendors} view={view} />
+      <ClientsToolbar clients={clients} exportClients={allClients} vendors={vendors} view={view} />
       <Card className="overflow-hidden"><CardContent className="p-0"><ClientsTable clients={clients} view={view} /></CardContent></Card>
     </div>
   );

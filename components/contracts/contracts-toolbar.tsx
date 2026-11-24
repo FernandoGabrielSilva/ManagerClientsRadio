@@ -8,8 +8,9 @@ import { toast } from "@/components/ui/toast";
 import Link from "next/link";
 import { Plus, FileText as FileTextIcon } from "lucide-react";
 
-export function ContractsToolbar({ contracts, view = "active" }: { contracts: any[]; view?: string }) {
+export function ContractsToolbar({ contracts, exportContracts, view = "active" }: { contracts: any[]; exportContracts?: any[]; view?: string }) {
   const router = useRouter();
+  const exportSource = exportContracts ?? contracts;
   const exportHeaders = [
     "Número",
     "Cliente",
@@ -21,7 +22,7 @@ export function ContractsToolbar({ contracts, view = "active" }: { contracts: an
     "Valor",
     "Status",
   ];
-  const exportRows = contracts.map((c) => [
+  const exportRows = exportSource.map((c) => [
     c.number ?? "",
     c.client?.name ?? "",
     c.mediaType ?? "",
@@ -32,7 +33,7 @@ export function ContractsToolbar({ contracts, view = "active" }: { contracts: an
     c.value ?? "",
     c.status ?? "",
   ]);
-  const exportData = contracts.map((c) => ({
+  const exportData = exportSource.map((c) => ({
     Número: c.number,
     Cliente: c.client?.name,
     Tipo: c.mediaType,

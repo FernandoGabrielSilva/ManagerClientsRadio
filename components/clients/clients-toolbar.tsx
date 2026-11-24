@@ -11,9 +11,10 @@ import { toast } from "@/components/ui/toast";
 import Link from "next/link";
 import { Plus, Users } from "lucide-react";
 
-export function ClientsToolbar({ clients, vendors, view = "active" }: { clients: any[]; vendors?: { id: string; name: string | null }[]; view?: string }) {
+export function ClientsToolbar({ clients, exportClients, vendors, view = "active" }: { clients: any[]; exportClients?: any[]; vendors?: { id: string; name: string | null }[]; view?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const exportSource = exportClients ?? clients;
   const exportHeaders = [
     "Cliente / anunciante",
     "Responsável",
@@ -29,7 +30,7 @@ export function ClientsToolbar({ clients, vendors, view = "active" }: { clients:
     "Conferência de datas",
     "Dias Vídeo",
   ];
-  const exportRows = clients.map((c) => [
+  const exportRows = exportSource.map((c) => [
     c.name ?? "",
     c.responsible ?? "",
     c.contactName ?? "",
@@ -44,7 +45,7 @@ export function ClientsToolbar({ clients, vendors, view = "active" }: { clients:
     c.dateConference ?? "",
     c.videoWeekday ?? "",
   ]);
-  const exportData = clients.map((c) => ({
+  const exportData = exportSource.map((c) => ({
     "Cliente / anunciante": c.name,
     "Responsável": c.responsible,
     "Contato / decisor": c.contactName,
