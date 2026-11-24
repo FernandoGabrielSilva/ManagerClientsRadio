@@ -44,7 +44,7 @@ import {
   disconnectGoogleAction,
   updateUserRoleAction,
   deleteAllSyncedGoogleEventsAction,
-  pushAllLocalEventsToGoogleAction,
+  syncGoogleIntegrationAction,
 } from "@/app/actions/settings";
 
 export function SettingsView({
@@ -84,10 +84,9 @@ export function SettingsView({
       setBrowserEnabled(localStorage.getItem("browserNotifEnabled") !== "false");
     }
   }, []);
-  const [confirmPushAll, setConfirmPushAll] = useState(false);
   const [confirmDeleteGoogle, setConfirmDeleteGoogle] = useState(false);
   const [deletingGoogle, setDeletingGoogle] = useState(false);
-  const [pushingAll, setPushingAll] = useState(false);
+  const [syncingGoogle, setSyncingGoogle] = useState(false);
 
   async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -216,40 +215,30 @@ export function SettingsView({
     try {
       const res = await deleteAllSyncedGoogleEventsAction();
       setConfirmDeleteGoogle(false);
-      toast.add({ title: "Eventos removidos", description: `${res.deleted ?? 0} de ${res.total ?? 0} removidos no Google` });
+      toast.add({
+        title: "Eventos removidos",
+        description: `${res.deleted ?? 0} de ${res.total ?? 0} removidos no Google${res.failed ? `, ${res.failed} falha(s)` : ""}`,
+      });
     } finally {
       setDeletingGoogle(false);
     }
   }
 
   async function syncGoogle() {
-    const res = await fetch("/api/google/sync", { method: "POST" });
-    const j = await res.json();
-    if (!res.ok) {
-      toast.add({ title: "Erro ao sincronizar", description: j.error ?? "Falha" });
-      return;
-    }
-    toast.add({
-      title: "Sincronizado",
-      description: `${j.pushed ?? 0} enviado(s) ao Google${j.errors?.length ? `, ${j.errors.length} erro(s)` : ""}`,
-    });
-  }
-
-  async function pushAllToGoogle() {
-    setPushingAll(true);
+    setSyncingGoogle(true);
     try {
-      const res = await pushAllLocalEventsToGoogleAction();
+      const res = await syncGoogleIntegrationAction();
       if (res.error) {
-        toast.add({ title: "Erro", description: res.error });
+        toast.add({ title: "Erro ao sincronizar", description: res.error });
         return;
       }
-      toast.add({
-        title: "Exportação concluída",
-        description: `${res.pushed ?? 0} de ${res.total ?? 0} enviado(s)${res.errors?.length ? `, ${res.errors.length} erro(s)` : ""}`,
-      });
-      setConfirmPushAll(false);
+      const desc = res.autoCreateEvents
+        ? `${res.deleted ?? 0} removido(s), ${res.pushed ?? 0} recriado(s)${(res.deleteFailed || res.pushErrors?.length) ? `, ${(res.deleteFailed ?? 0) + (res.pushErrors?.length ?? 0)} falha(s)` : ""}`
+        : `${res.deleted ?? 0} removido(s) do Google. Criação automática desativada: nada foi reenviado.`;
+      toast.add({ title: "Sincronização concluída", description: desc });
+      router.refresh();
     } finally {
-      setPushingAll(false);
+      setSyncingGoogle(false);
     }
   }
 
@@ -465,10 +454,11 @@ export function SettingsView({
                   </Button>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={syncGoogle}>
-                      Sincronizar agora
+                    <Button variant="outline" onClick={syncGoogle} disabled={syncingGoogle}>
+                      {syncingGoogle && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      {syncingGoogle ? "Sincronizando..." : "Sincronizar agora"}
                     </Button>
-                    <Button variant="destructive" onClick={() => setConfirmDeleteGoogle(true)}>
+                    <Button variant="destructive" onClick={() => setConfirmDeleteGoogle(true)} disabled={deletingGoogle}>
                       Apagar eventos do site no Google
                     </Button>
                     <Button
@@ -603,20 +593,7 @@ export function SettingsView({
         </div>
       </div>
 
-      <Dialog open={confirmPushAll} onOpenChange={setConfirmPushAll}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Enviar eventos ao Google Agenda</DialogTitle>
-            <DialogDescription>
-              Todos os eventos locais que ainda não foram sincronizados serão criados no Google Agenda conectado.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmPushAll(false)} disabled={pushingAll}>Cancelar</Button>
-            <Button onClick={pushAllToGoogle} disabled={pushingAll}>{pushingAll ? "Enviando..." : "Enviar eventos"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
 
       <Dialog open={confirmDeleteGoogle} onOpenChange={setConfirmDeleteGoogle}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">

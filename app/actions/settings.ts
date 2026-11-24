@@ -76,6 +76,7 @@ export async function deleteAllSyncedGoogleEventsAction() {
   });
   const events = await prisma.event.findMany({ where: { userId, googleEventId: { not: null } } });
   let deleted = 0;
+  let failed = 0;
   if (user?.googleCalendarConnected && user.googleAccessToken) {
     const calendarId = user.googleCalendarId || "primary";
     for (const ev of events) {
@@ -86,49 +87,68 @@ export async function deleteAllSyncedGoogleEventsAction() {
         deleted++;
       } catch (e) {
         console.error("google bulk delete error", e);
+        failed++;
       }
     }
   }
   revalidatePath("/calendar");
   revalidatePath("/settings");
-  return { success: true, deleted, total: events.length };
+  return { success: true, deleted, failed, total: events.length };
 }
 
-export async function pushAllLocalEventsToGoogleAction() {
+export async function syncGoogleIntegrationAction() {
   const userId = await getUserId();
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { googleCalendarConnected: true, googleAccessToken: true, googleRefreshToken: true, googleCalendarId: true },
+    select: { googleCalendarConnected: true, googleAccessToken: true, googleRefreshToken: true, googleCalendarId: true, autoCreateEvents: true },
   });
   if (!user?.googleCalendarConnected || !user.googleAccessToken) {
     return { error: "Google não conectado" };
   }
   const calendarId = user.googleCalendarId || "primary";
-  const events = await prisma.event.findMany({ where: { userId, googleEventId: null }, orderBy: { start: "asc" } });
-  let pushed = 0;
-  const errors: string[] = [];
-  for (const ev of events) {
+  const linked = await prisma.event.findMany({ where: { userId, googleEventId: { not: null } } });
+  let deleted = 0;
+  let deleteFailed = 0;
+  for (const ev of linked) {
+    if (!ev.googleEventId) continue;
     try {
-      const gid = await createCalendarEvent(user.googleAccessToken, user.googleRefreshToken, calendarId, {
-        title: ev.title,
-        description: ev.description ?? undefined,
-        start: ev.start,
-        end: ev.end,
-        allDay: ev.allDay,
-      });
-      if (gid) {
-        await prisma.event.update({ where: { id: ev.id }, data: { googleEventId: gid } });
-        pushed++;
-      }
+      await deleteCalendarEvent(user.googleAccessToken, user.googleRefreshToken, calendarId, ev.googleEventId);
+      await prisma.event.update({ where: { id: ev.id }, data: { googleEventId: null } });
+      deleted++;
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("push all error", msg);
-      errors.push(msg.slice(0, 80));
+      console.error("google sync delete error", e);
+      deleteFailed++;
     }
   }
+
+  let pushed = 0;
+  const pushErrors: string[] = [];
+  if (user.autoCreateEvents) {
+    const local = await prisma.event.findMany({ where: { userId }, orderBy: { start: "asc" } });
+    for (const ev of local) {
+      try {
+        const gid = await createCalendarEvent(user.googleAccessToken, user.googleRefreshToken, calendarId, {
+          title: ev.title,
+          description: ev.description ?? undefined,
+          start: ev.start,
+          end: ev.end,
+          allDay: ev.allDay,
+        });
+        if (gid) {
+          await prisma.event.update({ where: { id: ev.id }, data: { googleEventId: gid } });
+          pushed++;
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("google sync push error", msg);
+        pushErrors.push(msg.slice(0, 80));
+      }
+    }
+  }
+
   revalidatePath("/calendar");
   revalidatePath("/settings");
-  return { success: true, pushed, total: events.length, errors };
+  return { success: true, deleted, deleteFailed, pushed, pushErrors, autoCreateEvents: user.autoCreateEvents };
 }
 
 export async function disconnectGoogleAction() {

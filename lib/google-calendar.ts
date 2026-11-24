@@ -19,6 +19,7 @@ export async function createCalendarEvent(
   const body: Record<string, unknown> = {
     summary: event.title,
     description: event.description ?? undefined,
+    extendedProperties: { private: { source: "managerclientsradio" } },
   };
   if (event.allDay) {
     const startStr = event.start.toISOString().slice(0, 10);
@@ -50,7 +51,13 @@ export async function deleteCalendarEvent(
   eventId: string
 ) {
   const calendar = getCalendarClient(accessToken, refreshToken);
-  await calendar.events.delete({ calendarId, eventId });
+  try {
+    await calendar.events.delete({ calendarId, eventId });
+  } catch (e) {
+    const code = (e as { code?: number; response?: { status?: number } })?.code ?? (e as { response?: { status?: number } })?.response?.status;
+    if (code === 404 || code === 410) return;
+    throw e;
+  }
 }
 
 export async function listCalendarEvents(
