@@ -70,8 +70,8 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><CalendarIcon className="h-5 w-5" /></div>
           <div><h1 className="text-2xl font-bold tracking-tight">Calendário</h1><p className="text-sm text-muted-foreground">Agenda de eventos e compromissos</p></div>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setOpen(true)}>Novo evento</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setOpen(true)} className="w-full sm:w-auto">Novo evento</Button>
         </div>
       </div>
 
@@ -115,7 +115,7 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Novo evento</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-2">

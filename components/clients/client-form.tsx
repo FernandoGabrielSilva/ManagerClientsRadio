@@ -238,9 +238,9 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
         </div>
       </section>
 
-      <div className="flex gap-2 pt-2">
-        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Salvando..." : "Salvar"}</Button>
-        <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
+      <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => router.back()}>Cancelar</Button>
+        <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>{isSubmitting ? "Salvando..." : "Salvar"}</Button>
       </div>
     </form>
   );

@@ -568,13 +568,13 @@ export function SettingsView({
                 {(users ?? []).map((u) => (
                   <div
                     key={u.id}
-                    className="flex items-center justify-between border rounded-md p-3"
+                    className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border rounded-md p-3"
                   >
-                    <div>
-                      <div className="font-medium text-sm">
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm truncate">
                         {u.name ?? u.email}
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground truncate">
                         {u.email}
                       </div>
                     </div>
@@ -587,7 +587,7 @@ export function SettingsView({
                         ).then(() => router.refresh())
                       }
                     >
-                      <SelectTrigger className="w-32 bg-background border-input">
+                      <SelectTrigger className="w-full sm:w-32 bg-background border-input">
                         <SelectValue>{(v: any) => v === "admin" ? "Admin" : "Vendedor"}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
@@ -604,7 +604,7 @@ export function SettingsView({
       </div>
 
       <Dialog open={confirmPushAll} onOpenChange={setConfirmPushAll}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Enviar eventos ao Google Agenda</DialogTitle>
             <DialogDescription>
@@ -619,7 +619,7 @@ export function SettingsView({
       </Dialog>
 
       <Dialog open={confirmDeleteGoogle} onOpenChange={setConfirmDeleteGoogle}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Apagar eventos do site no Google Agenda</DialogTitle>
             <DialogDescription>

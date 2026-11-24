@@ -21,13 +21,13 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
             {client.name.slice(0,2).toUpperCase()}
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
-            <p className="text-sm text-muted-foreground">{client.tradeName ?? client.company ?? "Cliente"}</p>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight truncate">{client.name}</h1>
+            <p className="text-sm text-muted-foreground truncate">{client.tradeName ?? client.company ?? "Cliente"}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

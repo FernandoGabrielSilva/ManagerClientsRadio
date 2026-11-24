@@ -129,7 +129,7 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
               )}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
+          <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-sm sm:w-80">
             <DropdownMenuGroup><DropdownMenuLabel>Notificações</DropdownMenuLabel></DropdownMenuGroup>
             <DropdownMenuSeparator />
             {(notifications ?? []).length === 0 && (
@@ -153,7 +153,7 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
             </Avatar>
             <span className="hidden sm:block text-sm font-medium max-w-[120px] truncate">{user.name ?? user.email}</span>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-xs sm:w-56">
             <DropdownMenuGroup><DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">{user.name ?? "Usuário"}</p>

@@ -181,7 +181,7 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
       )}
 
       {filtered.length > PAGE_SIZE && (
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
           <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filtered.length} itens)</span>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
@@ -191,7 +191,7 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
       )}
 
       <Dialog open={confirm.open} onOpenChange={(o) => setConfirm((prev) => ({ ...prev, open: o }))}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Confirmar ação</DialogTitle></DialogHeader>
           <p className="text-sm">Deseja {labels[confirm.type]} {selected.size} item(ns)?</p>
           <DialogFooter>

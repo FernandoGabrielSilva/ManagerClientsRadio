@@ -60,7 +60,7 @@ export default async function DashboardPage() {
         actions={<span className="text-sm text-muted-foreground">{clients.length} clientes na base</span>}
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s) => {
           const Icon = s.icon;
           return (
@@ -89,21 +89,21 @@ export default async function DashboardPage() {
               ) : (
                 <div className="max-h-80 overflow-auto divide-y">
                   {videoToday.map((c: Client) => (
-                    <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
-                      <span className="flex items-center gap-2"><Video className="h-4 w-4 text-primary" /> Enviar vídeo para <span className="font-medium">{c.name}</span></span>
-                      <span className="text-xs text-muted-foreground">Hoje</span>
+                    <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
+                      <span className="flex min-w-0 items-center gap-2"><Video className="h-4 w-4 text-primary shrink-0" /><span className="truncate">Enviar vídeo para <span className="font-medium">{c.name}</span></span></span>
+                      <span className="text-xs text-muted-foreground shrink-0">Hoje</span>
                     </Link>
                   ))}
                   {contactOverdue.map((c: Client) => (
-                    <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
-                      <span className="flex items-center gap-2"><Phone className="h-4 w-4 text-destructive" /> Contatar <span className="font-medium">{c.name}</span></span>
-                      <span className="text-xs text-muted-foreground">há {daysSinceContact(c.lastContactAt)} dias</span>
+                    <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
+                      <span className="flex min-w-0 items-center gap-2"><Phone className="h-4 w-4 text-destructive shrink-0" /><span className="truncate">Contatar <span className="font-medium">{c.name}</span></span></span>
+                      <span className="text-xs text-muted-foreground shrink-0">há {daysSinceContact(c.lastContactAt)} dias</span>
                     </Link>
                   ))}
                   {adChange.map((c: Client) => (
-                    <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
-                      <span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Sugerir mudança de anúncio <span className="font-medium">{c.name}</span></span>
-                      <span className="text-xs text-muted-foreground">pendente</span>
+                    <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
+                      <span className="flex min-w-0 items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" /><span className="truncate">Sugerir mudança de anúncio <span className="font-medium">{c.name}</span></span></span>
+                      <span className="text-xs text-muted-foreground shrink-0">pendente</span>
                     </Link>
                   ))}
                 </div>
@@ -200,9 +200,9 @@ export default async function DashboardPage() {
             <CardContent className="p-0">
               <div className="divide-y">
                 {expiring.map((c: Client) => (
-                  <div key={c.id} className="flex justify-between px-5 py-3 text-sm">
-                    <span className="font-medium">{c.name}</span>
-                    <span className="text-muted-foreground tabular-nums">{formatDate(c.contractEnd)}</span>
+                  <div key={c.id} className="flex justify-between gap-3 px-5 py-3 text-sm">
+                    <span className="font-medium truncate">{c.name}</span>
+                    <span className="text-muted-foreground tabular-nums shrink-0">{formatDate(c.contractEnd)}</span>
                   </div>
                 ))}
               </div>

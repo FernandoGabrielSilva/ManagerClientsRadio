@@ -19,11 +19,11 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
   const status = days < 0 ? "Vencido" : days <= 15 ? "Perto de Vencer" : "Ativo";
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><FileIcon className="h-5 w-5" /></div>
-        <div><h1 className="text-2xl font-bold tracking-tight">Contrato {contract.number ?? contract.id.slice(0, 8)}</h1><p className="text-sm text-muted-foreground">{contract.client?.name}</p></div>
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><FileIcon className="h-5 w-5" /></div>
+        <div className="min-w-0"><h1 className="text-2xl font-bold tracking-tight truncate">Contrato {contract.number ?? contract.id.slice(0, 8)}</h1><p className="text-sm text-muted-foreground truncate">{contract.client?.name}</p></div>
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Cliente</CardTitle></CardHeader><CardContent>{contract.client?.name}</CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Status</CardTitle></CardHeader><CardContent><Badge>{status}</Badge></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Dias restantes</CardTitle></CardHeader><CardContent>{days}</CardContent></Card>
