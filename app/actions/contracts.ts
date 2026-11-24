@@ -14,15 +14,22 @@ async function getUserId() {
 }
 
 export async function createContractAction(data: z.infer<typeof contractSchema>) {
-  const userId = await getUserId();
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Não autenticado");
+  const userId = session.user.id as string;
+  const role = (session.user as { role?: string }).role;
   const parsed = contractSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   const d = parsed.data;
+  const clientWhere: Prisma.ClientWhereInput = { id: d.clientId };
+  if (role !== "admin") clientWhere.OR = [{ userId }, { vendorId: userId }];
+  const client = await prisma.client.findFirst({ where: clientWhere, select: { id: true } });
+  if (!client) return { error: "Cliente não encontrado" };
   await prisma.contract.create({
     data: {
       number: d.number ?? null,
       clientId: d.clientId,
-      vendorId: d.vendorId || userId,
+      vendorId: role === "admin" ? (d.vendorId || userId) : userId,
       sellerName: d.sellerName?.trim() || null,
       startDate: new Date(d.startDate),
       endDate: new Date(d.endDate),
@@ -39,12 +46,19 @@ export async function createContractAction(data: z.infer<typeof contractSchema>)
 }
 
 export async function updateContractPdfAction(id: string, pdfBase64: string, pdfName: string) {
-  const userId = await getUserId();
-  await prisma.contract.update({
-    where: { id },
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Não autenticado");
+  const userId = session.user.id as string;
+  const role = (session.user as { role?: string }).role;
+  const where: Prisma.ContractWhereInput = { id };
+  if (role !== "admin") where.vendorId = userId;
+  const result = await prisma.contract.updateMany({
+    where,
     data: { pdfData: Buffer.from(pdfBase64, "base64"), pdfName },
   });
+  if (result.count === 0) return { error: "Contrato não encontrado" };
   revalidatePath("/contracts");
+  revalidatePath(`/contracts/${id}`);
   return { success: true };
 }
 
@@ -105,7 +119,13 @@ export async function permanentDeleteContractsAction(ids: string[]) {
 
 export async function addContactHistoryAction(clientId: string, summary: string) {
   const session = await auth();
-  const userId = session!.user!.id as string;
+  if (!session?.user?.id) throw new Error("Não autenticado");
+  const userId = session.user.id as string;
+  const role = (session.user as { role?: string }).role;
+  const clientWhere: Prisma.ClientWhereInput = { id: clientId };
+  if (role !== "admin") clientWhere.OR = [{ userId }, { vendorId: userId }];
+  const client = await prisma.client.findFirst({ where: clientWhere, select: { id: true } });
+  if (!client) return { error: "Cliente não encontrado" };
   await prisma.contactHistory.create({
     data: { clientId, vendorId: userId, summary },
   });
@@ -135,21 +155,31 @@ export async function getAllContractsForExportAction() {
 }
 
 export async function importContractsAction(rows: any[]) {
-  const userId = await getUserId();
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Não autenticado");
+  const userId = session.user.id as string;
+  const role = (session.user as { role?: string }).role;
   let count = 0;
-  for (const r of rows) {
-    // find client by name
-    const client = await prisma.client.findFirst({ where: { userId, name: String(r.client ?? r.Cliente ?? "") } });
+  const safeRows = Array.isArray(rows) ? rows.slice(0, 500) : [];
+  for (const r of safeRows) {
+    if (!r || typeof r !== "object") continue;
+    const clientName = String(r.client ?? r.Cliente ?? "").trim();
+    if (!clientName) continue;
+    const clientWhere: Prisma.ClientWhereInput = { name: clientName };
+    if (role !== "admin") clientWhere.OR = [{ userId }, { vendorId: userId }];
+    const client = await prisma.client.findFirst({ where: clientWhere, select: { id: true } });
     if (!client) continue;
+    const start = new Date(r.startDate ?? r["Data Início"] ?? new Date());
+    const end = new Date(r.endDate ?? r["Data Término"] ?? new Date());
     await prisma.contract.create({
       data: {
         number: r.number ?? r.Número ?? null,
         clientId: client.id,
         vendorId: userId,
         sellerName: r.sellerName ?? r["Vendedor"] ?? null,
-        startDate: new Date(r.startDate ?? r["Data Início"] ?? new Date()),
-        endDate: new Date(r.endDate ?? r["Data Término"] ?? new Date()),
-        mediaType: (r.mediaType ?? "spot") as any,
+        startDate: Number.isNaN(start.getTime()) ? new Date() : start,
+        endDate: Number.isNaN(end.getTime()) ? new Date() : end,
+        mediaType: (["spot", "sponsorship", "testimonial", "other"].includes(String(r.mediaType)) ? String(r.mediaType) : "spot") as "spot" | "sponsorship" | "testimonial" | "other",
         insertions: r.insertions ? Number(r.insertions) : null,
         timeSlots: r.timeSlots ?? r.Horários ?? null,
         value: r.value ? Number(r.value) : null,

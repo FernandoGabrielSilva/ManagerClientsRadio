@@ -13,7 +13,9 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const session = await auth();
   const userId = session!.user!.id as string;
-  const contract = await prisma.contract.findFirst({ where: { id }, include: { client: true, vendor: true } });
+  const role = (session!.user as { role?: string }).role;
+  const where = role === "admin" ? { id } : { id, vendorId: userId };
+  const contract = await prisma.contract.findFirst({ where, include: { client: true, vendor: true } });
   if (!contract) notFound();
   const days = differenceInDays(new Date(contract.endDate), new Date());
   const status = days < 0 ? "Vencido" : days <= 15 ? "Perto de Vencer" : "Ativo";

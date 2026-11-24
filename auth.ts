@@ -45,6 +45,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ account, profile }) {
+      if (account?.provider === "google") {
+        const emailVerified = (profile as { email_verified?: boolean } | null)?.email_verified;
+        if (emailVerified !== true) return false;
+      }
+      return true;
+    },
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;

@@ -253,18 +253,21 @@ export async function importClientsAction(rows: any[]) {
   const userId = session!.user!.id as string;
   const role = (session!.user as any).role;
   let count = 0;
-  for (const r of rows) {
+  const safeRows = Array.isArray(rows) ? rows.slice(0, 500) : [];
+  for (const r of safeRows) {
+    if (!r || typeof r !== "object") continue;
+    const name = String(r.name ?? r["Cliente / anunciante"] ?? r.Nome ?? "Sem nome").slice(0, 200);
     await prisma.client.create({
       data: {
         userId,
         vendorId: userId,
-        name: String(r.name ?? r["Cliente / anunciante"] ?? r.Nome ?? "Sem nome"),
+        name,
         phone: r.phone ?? r.WhatsApp ?? r.Telefone ?? null,
         email: r.email ?? r.Email ?? null,
         contactName: r.contactName ?? r["Contato / decisor"] ?? r.Contato ?? null,
-        videoWeekday: Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1),
-        contactFrequencyDays: Number(r.contactFrequencyDays ?? 14),
-        contractStatus: (r.contractStatus ?? "active") as any,
+        videoWeekday: Math.max(0, Math.min(127, Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1) || 1)),
+        contactFrequencyDays: Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? 14) || 14)),
+        contractStatus: (["active", "paused", "ended", "negotiation"].includes(String(r.contractStatus)) ? r.contractStatus : "active") as any,
         notes: r.notes ?? r["Histórico / observações"] ?? r.Observações ?? null,
         responsible: r.responsible ?? r["Responsável"] ?? null,
         commercialStatus: r.commercialStatus ?? r["Situação comercial"] ?? null,

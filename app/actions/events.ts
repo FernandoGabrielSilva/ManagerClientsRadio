@@ -39,7 +39,7 @@ async function pushEventToGoogle(userId: string, event: { id: string; title: str
   }
 }
 
-export async function deleteEventsForClients(userId: string, clientIds: string[]) {
+async function deleteEventsForClientsInternal(userId: string, clientIds: string[]) {
   if (clientIds.length === 0) return;
   const user = await getGoogleUser(userId);
   const events = await prisma.event.findMany({ where: { userId, clientId: { in: clientIds } } });
@@ -57,7 +57,25 @@ export async function deleteEventsForClients(userId: string, clientIds: string[]
   await prisma.event.deleteMany({ where: { userId, clientId: { in: clientIds } } });
 }
 
-export async function syncPendingGoogleEventsForUser(userId: string) {
+export async function deleteEventsForClients(userId: string, clientIds: string[]) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Não autenticado");
+  const sessionUserId = session.user.id as string;
+  const role = (session.user as { role?: string }).role;
+  if (role !== "admin" && sessionUserId !== userId) throw new Error("Sem permissão");
+  return deleteEventsForClientsInternal(userId, clientIds);
+}
+
+export async function ensureClientContactEventsForUser(userId: string, role?: string, opts?: { revalidate?: boolean }) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Não autenticado");
+  const sessionUserId = session.user.id as string;
+  const sessionRole = (session.user as { role?: string }).role;
+  if (sessionRole !== "admin" && sessionUserId !== userId) throw new Error("Sem permissão");
+  return ensureClientContactEventsForUserInternal(userId, sessionRole === "admin" ? role : sessionRole);
+}
+
+async function syncPendingGoogleEventsForUserInternal(userId: string) {
   const user = await getGoogleUser(userId);
   if (!user?.googleCalendarConnected || !user.autoCreateEvents || !user.googleAccessToken) return { pushed: 0 };
   const pending = await prisma.event.findMany({ where: { userId, googleEventId: null } });
@@ -69,6 +87,15 @@ export async function syncPendingGoogleEventsForUser(userId: string) {
     if (!before && after?.googleEventId) pushed++;
   }
   return { pushed };
+}
+
+export async function syncPendingGoogleEventsForUser(userId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Não autenticado");
+  const sessionUserId = session.user.id as string;
+  const role = (session.user as { role?: string }).role;
+  if (role !== "admin" && sessionUserId !== userId) throw new Error("Sem permissão");
+  return syncPendingGoogleEventsForUserInternal(userId);
 }
 
 export async function createEventAction(data: z.infer<typeof eventSchema>) {
@@ -127,8 +154,8 @@ export async function ensureClientContactEventsAction() {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Não autenticado");
   const userId = session.user.id as string;
-  const role = (session.user as any).role;
-  return ensureClientContactEventsForUser(userId, role);
+  const role = (session.user as { role?: string }).role;
+  return ensureClientContactEventsForUserInternal(userId, role);
 }
 
 async function upsertAutoEvent(userId: string, key: { clientId: string; type: "contact" | "contract_expiry"; start: Date; titlePrefix: string }, data: { title: string; description: string; start: Date; end: Date }) {
@@ -148,7 +175,7 @@ async function upsertAutoEvent(userId: string, key: { clientId: string; type: "c
   return true;
 }
 
-export async function ensureClientContactEventsForUser(userId: string, role?: string, opts?: { revalidate?: boolean }) {
+async function ensureClientContactEventsForUserInternal(userId: string, role?: string, opts?: { revalidate?: boolean }) {
   const where = role === "admin"
     ? { deletedAt: null, archivedAt: null }
     : { OR: [{ userId }, { vendorId: userId }], deletedAt: null, archivedAt: null };
