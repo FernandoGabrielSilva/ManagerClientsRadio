@@ -67,13 +67,13 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
     setSelected(next);
   }
 
-  const isCoarse = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
   function clearLongPress() {
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
     longPressStart.current = null;
   }
   function onRowPointerDown(e: React.PointerEvent, id: string) {
-    if (!isCoarse() || e.button !== 0) return;
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button, a, input, [role='checkbox'], [data-slot='checkbox']")) return;
     longPressFired.current = false;
     longPressStart.current = { x: e.clientX, y: e.clientY };
     clearLongPress();
@@ -193,7 +193,7 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
                 onPointerUp={onRowPointerUp}
                 onPointerCancel={onRowPointerUp}
                 onPointerLeave={onRowPointerUp}
-                onContextMenu={(e) => { if (isCoarse()) e.preventDefault(); }}
+                onContextMenu={(e) => { if (longPressTimer.current || selected.size > 0) e.preventDefault(); }}
               >
                 <TableCell onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                   <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggle(c.id)} />
