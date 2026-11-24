@@ -16,11 +16,27 @@ async function getUser() {
 
 export async function getBackgroundJobsAction() {
   const user = await getUser();
+  const u = await prisma.user.findUnique({ where: { id: user.id }, select: { autoClearCompletedJobs: true } });
+  const where: any = { userId: user.id };
+  if (u?.autoClearCompletedJobs) where.status = { in: ["pending", "running"] };
   return prisma.backgroundJob.findMany({
-    where: { userId: user.id },
+    where,
     orderBy: { createdAt: "desc" },
     take: 10,
   });
+}
+
+export async function clearCompletedBackgroundJobsAction() {
+  const user = await getUser();
+  await prisma.backgroundJob.deleteMany({ where: { userId: user.id, status: { in: ["completed", "failed", "cancelled"] } } });
+  return { success: true };
+}
+
+export async function updateAutoClearJobsAction(autoClearCompletedJobs: boolean) {
+  const user = await getUser();
+  await prisma.user.update({ where: { id: user.id }, data: { autoClearCompletedJobs } });
+  revalidatePath("/settings");
+  return { success: true };
 }
 
 export async function getBackgroundJobAction(id: string) {

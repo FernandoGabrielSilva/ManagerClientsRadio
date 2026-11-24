@@ -9,7 +9,7 @@ export default async function SettingsPage() {
     select: {
       id: true, name: true, email: true, image: true, themeColor: true, themeMode: true,
       googleCalendarConnected: true, notificationsEnabled: true, autoCreateEvents: true,
-      defaultContactFrequency: true, googleCalendarId: true, role: true, passwordHash: true,
+      defaultContactFrequency: true, googleCalendarId: true, role: true, passwordHash: true, autoClearCompletedJobs: true,
     },
   });
   if (!user) return null;

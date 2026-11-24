@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "autoClearCompletedJobs" BOOLEAN NOT NULL DEFAULT false;

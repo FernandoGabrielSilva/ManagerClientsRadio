@@ -70,6 +70,7 @@ model User {
   autoCreateEvents      Boolean   @default(false)
   notificationsEnabled  Boolean   @default(true)
   defaultContactFrequency Int     @default(14)
+  autoClearCompletedJobs Boolean  @default(false)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 

@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { getUnreadNotificationsAction } from "@/app/actions/notifications";
-import { getBackgroundJobsAction } from "@/app/actions/background-jobs";
+import { clearCompletedBackgroundJobsAction, getBackgroundJobsAction } from "@/app/actions/background-jobs";
 import { BackgroundJobStatus } from "@/components/settings/background-job-status";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,7 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
     async function loadJobs() {
       try {
         const j = await getBackgroundJobsAction();
-        if (active) setJobs((j as any[]).filter((x) => x.status === "pending" || x.status === "running"));
+        if (active) setJobs(j as any[]);
       } catch {}
     }
     loadJobs();
@@ -139,9 +139,9 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
       </div>
       <div className="flex items-center gap-2">
         {(() => {
+          if (jobs.length === 0) return null;
           const activeJobs = jobs.filter((j) => j.status === "pending" || j.status === "running");
-          if (activeJobs.length === 0) return null;
-          const avg = Math.round(activeJobs.reduce((a, j) => a + (j.total > 0 ? Math.min(100, (j.processed / j.total) * 100) : (j.progress ?? 0)), 0) / activeJobs.length);
+          const avg = activeJobs.length ? Math.round(activeJobs.reduce((a, j) => a + (j.total > 0 ? Math.min(100, (j.processed / j.total) * 100) : (j.progress ?? 0)), 0) / activeJobs.length) : 100;
           const r = 16; const c = 2 * Math.PI * r; const off = c - (avg / 100) * c;
           return (
             <DropdownMenu>
@@ -156,8 +156,10 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
                 <DropdownMenuGroup><DropdownMenuLabel>Progresso em segundo plano</DropdownMenuLabel></DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <div className="space-y-2 max-h-96 overflow-y-auto p-1">
-                  {activeJobs.map((j) => <BackgroundJobStatus key={j.id} jobId={j.id} onDone={() => { getBackgroundJobsAction().then((r) => setJobs((r as any[]).filter((x) => x.status === "pending" || x.status === "running"))).catch(() => {}); }} />)}
+                  {jobs.map((j) => <BackgroundJobStatus key={j.id} jobId={j.id} onDone={() => { getBackgroundJobsAction().then((r) => setJobs(r as any[])).catch(() => {}); }} />)}
                 </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={async () => { await clearCompletedBackgroundJobsAction(); const r = await getBackgroundJobsAction(); setJobs(r as any[]); }}>Limpar concluídas</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           );

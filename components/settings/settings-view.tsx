@@ -45,9 +45,11 @@ import {
   updateUserRoleAction,
 } from "@/app/actions/settings";
 import {
+  clearCompletedBackgroundJobsAction,
   getBackgroundJobsAction,
   startDeleteSyncedGoogleEventsJobAction,
   startSyncGoogleIntegrationJobAction,
+  updateAutoClearJobsAction,
 } from "@/app/actions/background-jobs";
 import { BackgroundJobStatus } from "@/components/settings/background-job-status";
 
@@ -70,6 +72,7 @@ export function SettingsView({
     googleCalendarId: string | null;
     role?: string;
     hasPassword: boolean;
+    autoClearCompletedJobs: boolean;
   };
   users?: { id: string; name: string | null; email: string; role: string }[];
   notifications?: { id: string; title: string; message: string; read: boolean; createdAt: Date | string }[];
@@ -92,6 +95,7 @@ export function SettingsView({
   const [confirmSyncGoogle, setConfirmSyncGoogle] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [activeJobTitle, setActiveJobTitle] = useState<string | null>(null);
+  const [autoClearCompletedJobs, setAutoClearCompletedJobs] = useState(user.autoClearCompletedJobs);
   useEffect(() => {
     getBackgroundJobsAction().then((jobs) => {
       const running = jobs.find((j) => j.status === "pending" || j.status === "running");
@@ -512,7 +516,8 @@ export function SettingsView({
           )}
 
           {tab === "notifications" && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              <div className="space-y-4">
               <h2 className="text-lg font-semibold">
                 Preferências de notificação
               </h2>
@@ -559,6 +564,16 @@ export function SettingsView({
                   <Button type="submit">Salvar</Button>
                 </div>
               </form>
+              </div>
+
+              <div className="space-y-3 max-w-md border-t pt-6">
+                <h3 className="text-base font-semibold">Tarefas em segundo plano</h3>
+                <div className="flex items-center justify-between gap-4">
+                  <Label>Limpar automaticamente quando concluído</Label>
+                  <Switch checked={autoClearCompletedJobs} onCheckedChange={async (v) => { setAutoClearCompletedJobs(v); await updateAutoClearJobsAction(v); }} />
+                </div>
+                <Button variant="outline" onClick={async () => { await clearCompletedBackgroundJobsAction(); toast.add({ title: "Tarefas concluídas limpas" }); router.refresh(); }}>Limpar tarefas concluídas</Button>
+              </div>
             </div>
           )}
 
