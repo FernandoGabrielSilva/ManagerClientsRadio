@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,9 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
   const [confirm, setConfirm] = useState<{ type: string; open: boolean }>({ type: "", open: false });
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+  const longPressStart = useRef<{ x: number; y: number } | null>(null);
 
   const types = useMemo(() => Array.from(new Set(contracts.map((c) => c.mediaType as string).filter(Boolean))), [contracts]);
 
@@ -35,7 +38,7 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
 
   const filtered = contracts.filter((c) => {
     const q = query.trim().toLowerCase();
-    if (q && ![c.number, c.client?.name, c.mediaType, c.status].some((v) => String(v ?? "").toLowerCase().includes(q))) return false;
+    if (q && ![c.number, c.client?.name, c.sellerName, c.vendor?.name, c.mediaType, c.status].some((v) => String(v ?? "").toLowerCase().includes(q))) return false;
     if (typeFilter !== "all" && c.mediaType !== typeFilter) return false;
     if (statusFilter !== "all" && contractStatus(c) !== statusFilter) return false;
     return true;
@@ -64,6 +67,38 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
     const next = new Set(selected);
     if (next.has(id)) next.delete(id); else next.add(id);
     setSelected(next);
+  }
+
+  const isCoarse = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+  function clearLongPress() {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    longPressStart.current = null;
+  }
+  function onRowPointerDown(e: React.PointerEvent, id: string) {
+    if (!isCoarse() || e.button !== 0) return;
+    longPressFired.current = false;
+    longPressStart.current = { x: e.clientX, y: e.clientY };
+    clearLongPress();
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    }, 450);
+  }
+  function onRowPointerMove(e: React.PointerEvent) {
+    if (!longPressStart.current) return;
+    const dx = e.clientX - longPressStart.current.x;
+    const dy = e.clientY - longPressStart.current.y;
+    if (Math.hypot(dx, dy) > 8) clearLongPress();
+  }
+  function onRowPointerUp() { clearLongPress(); }
+  function onRowClick(id: string) {
+    if (longPressFired.current) { longPressFired.current = false; return; }
+    if (selected.size > 0) { toggle(id); return; }
+    router.push(`/contracts/${id}`);
   }
 
   const labels: Record<string, string> = {
@@ -145,6 +180,7 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
               </TableHead>
               <TableHead>Número</TableHead>
               <TableHead>Cliente</TableHead>
+              <TableHead>Vendedor</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Início</TableHead>
               <TableHead className="text-right">Término</TableHead>
@@ -158,12 +194,23 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
               const status = days < 0 ? "Vencido" : days <= 15 ? "Perto de Vencer" : "Ativo";
               const variant = days < 0 ? "destructive" : days <= 15 ? "secondary" : "outline";
               return (
-                <TableRow key={c.id} className="cursor-pointer" onClick={() => router.push(`/contracts/${c.id}`)}>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                <TableRow
+                  key={c.id}
+                  className="cursor-pointer select-none"
+                  onClick={() => onRowClick(c.id)}
+                  onPointerDown={(e) => onRowPointerDown(e, c.id)}
+                  onPointerMove={onRowPointerMove}
+                  onPointerUp={onRowPointerUp}
+                  onPointerCancel={onRowPointerUp}
+                  onPointerLeave={onRowPointerUp}
+                  onContextMenu={(e) => { if (isCoarse()) e.preventDefault(); }}
+                >
+                  <TableCell onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                     <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggle(c.id)} />
                   </TableCell>
                   <TableCell className="font-medium">{c.number ?? "—"}</TableCell>
                   <TableCell>{c.client?.name ?? "—"}</TableCell>
+                  <TableCell>{c.sellerName ?? c.vendor?.name ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.mediaType}</TableCell>
                   <TableCell className="text-muted-foreground tabular-nums">{formatDate(c.startDate)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatDate(c.endDate)}</TableCell>

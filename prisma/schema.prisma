@@ -173,6 +173,7 @@ model Contract {
   number       String?
   clientId     String
   vendorId     String?
+  sellerName   String?
   startDate    DateTime
   endDate      DateTime
   mediaType    MediaType     @default(spot)

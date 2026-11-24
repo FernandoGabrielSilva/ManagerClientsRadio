@@ -15,11 +15,11 @@ import { z } from "zod";
 
 type Values = z.infer<typeof contractSchema>;
 
-export function ContractForm({ clients, vendors, onSuccess, onCancel }: { clients: { id: string; name: string }[]; vendors?: { id: string; name: string | null }[]; onSuccess?: () => void; onCancel?: () => void }) {
+export function ContractForm({ clients, onSuccess, onCancel }: { clients: { id: string; name: string }[]; onSuccess?: () => void; onCancel?: () => void }) {
   const router = useRouter();
   const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<Values>({
     resolver: zodResolver(contractSchema),
-    defaultValues: { mediaType: "spot", startDate: new Date().toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10) },
+    defaultValues: { mediaType: "spot", startDate: new Date().toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10), sellerName: "" },
   });
 
   async function onSubmit(values: Values) {
@@ -49,12 +49,7 @@ export function ContractForm({ clients, vendors, onSuccess, onCancel }: { client
         </div>
         <div className="space-y-2">
           <Label>Vendedor</Label>
-          <Select value={watch("vendorId") ?? ""} onValueChange={(v: string | null) => setValue("vendorId", v)}>
-            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-            <SelectContent>
-              {(vendors ?? []).map((v) => <SelectItem key={v.id} value={v.id}>{v.name ?? v.id}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Input {...register("sellerName")} placeholder="Nome do vendedor" />
         </div>
         <div className="space-y-2">
           <Label>Tipo de mídia</Label>

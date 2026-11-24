@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,9 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
   const [confirm, setConfirm] = useState<{ type: string; open: boolean }>({ type: "", open: false });
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+  const longPressStart = useRef<{ x: number; y: number } | null>(null);
 
   const statuses = useMemo(() => Array.from(new Set(clients.map((c) => (c.commercialStatus ?? c.contractStatus) as string).filter(Boolean))), [clients]);
   const vendors = useMemo(() => Array.from(new Set(clients.map((c) => (c.responsible ?? c.vendor?.name ?? "") as string).filter(Boolean))), [clients]);
@@ -62,6 +65,38 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
     const next = new Set(selected);
     if (next.has(id)) next.delete(id); else next.add(id);
     setSelected(next);
+  }
+
+  const isCoarse = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+  function clearLongPress() {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    longPressStart.current = null;
+  }
+  function onRowPointerDown(e: React.PointerEvent, id: string) {
+    if (!isCoarse() || e.button !== 0) return;
+    longPressFired.current = false;
+    longPressStart.current = { x: e.clientX, y: e.clientY };
+    clearLongPress();
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    }, 450);
+  }
+  function onRowPointerMove(e: React.PointerEvent) {
+    if (!longPressStart.current) return;
+    const dx = e.clientX - longPressStart.current.x;
+    const dy = e.clientY - longPressStart.current.y;
+    if (Math.hypot(dx, dy) > 8) clearLongPress();
+  }
+  function onRowPointerUp() { clearLongPress(); }
+  function onRowClick(id: string) {
+    if (longPressFired.current) { longPressFired.current = false; return; }
+    if (selected.size > 0) { toggle(id); return; }
+    router.push(`/clients/${id}`);
   }
 
   const labels: Record<string, string> = {
@@ -149,8 +184,18 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
           </TableHeader>
           <TableBody>
             {paged.map((c) => (
-              <TableRow key={c.id} className="cursor-pointer" onClick={() => router.push(`/clients/${c.id}`)}>
-                <TableCell onClick={(e) => e.stopPropagation()}>
+              <TableRow
+                key={c.id}
+                className="cursor-pointer select-none"
+                onClick={() => onRowClick(c.id)}
+                onPointerDown={(e) => onRowPointerDown(e, c.id)}
+                onPointerMove={onRowPointerMove}
+                onPointerUp={onRowPointerUp}
+                onPointerCancel={onRowPointerUp}
+                onPointerLeave={onRowPointerUp}
+                onContextMenu={(e) => { if (isCoarse()) e.preventDefault(); }}
+              >
+                <TableCell onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                   <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggle(c.id)} />
                 </TableCell>
                 <TableCell className="font-medium">{c.name}</TableCell>

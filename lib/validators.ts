@@ -80,6 +80,7 @@ export const contractSchema = z.object({
   number: z.string().optional().nullable(),
   clientId: z.string().min(1, "Cliente obrigatório"),
   vendorId: z.string().optional().nullable(),
+  sellerName: z.string().optional().nullable(),
   startDate: z.string(),
   endDate: z.string(),
   mediaType: z.enum(["spot", "sponsorship", "testimonial", "other"]),

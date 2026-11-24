@@ -11,13 +11,14 @@ import { toast } from "@/components/ui/toast";
 import Link from "next/link";
 import { Plus, FileText as FileTextIcon } from "lucide-react";
 
-export function ContractsToolbar({ contracts, exportContracts, clients = [], vendors = [], view = "active" }: { contracts: Array<Record<string, unknown>>; exportContracts?: Array<Record<string, unknown>>; clients?: { id: string; name: string }[]; vendors?: { id: string; name: string | null }[]; view?: string }) {
+export function ContractsToolbar({ contracts, exportContracts, clients = [], view = "active" }: { contracts: Array<Record<string, unknown>>; exportContracts?: Array<Record<string, unknown>>; clients?: { id: string; name: string }[]; view?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const exportHeaders = [
     "Número",
     "Cliente",
+    "Vendedor",
     "Tipo",
     "Início",
     "Término",
@@ -41,9 +42,12 @@ export function ContractsToolbar({ contracts, exportContracts, clients = [], ven
       const exportRows: (string | number | null | undefined)[][] = source.map((raw) => {
         const c = raw as Record<string, unknown>;
         const client = c.client as Record<string, unknown> | null | undefined;
+        const vendor = c.vendor as Record<string, unknown> | null | undefined;
+        const seller = str(c.sellerName ?? vendor?.name ?? c.seller);
         return [
           str(c.number),
           str(client?.name ?? c.clientName),
+          seller,
           str(c.mediaType),
           fmtDate(c.startDate),
           fmtDate(c.endDate),
@@ -56,9 +60,11 @@ export function ContractsToolbar({ contracts, exportContracts, clients = [], ven
       const exportData: Record<string, unknown>[] = source.map((raw) => {
         const c = raw as Record<string, unknown>;
         const client = c.client as Record<string, unknown> | null | undefined;
+        const vendor = c.vendor as Record<string, unknown> | null | undefined;
         return {
           "Número": c.number,
           "Cliente": client?.name ?? c.clientName,
+          "Vendedor": c.sellerName ?? vendor?.name ?? c.seller,
           "Tipo": c.mediaType,
           "Início": c.startDate,
           "Término": c.endDate,
@@ -110,7 +116,7 @@ export function ContractsToolbar({ contracts, exportContracts, clients = [], ven
           subtitle="Controle de contratos"
           headers={exportHeaders}
           getExportData={getExportData}
-          columnWidths={[18, 28, 18, 14, 14, 12, 24, 14, 16]}
+          columnWidths={[18, 24, 20, 16, 14, 14, 12, 24, 14, 16]}
           loading={exporting}
         />
         <ExportPdfButton getData={async () => (await getExportData()).exportData} filename="contratos.pdf" columns={exportHeaders.map((h) => ({ header: h, dataKey: h }))} loading={exporting} />
@@ -119,7 +125,7 @@ export function ContractsToolbar({ contracts, exportContracts, clients = [], ven
           <Button onClick={() => setOpen(true)} className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Novo contrato</Button>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Novo contrato</DialogTitle></DialogHeader>
-            <ContractForm clients={clients} vendors={vendors} onSuccess={() => setOpen(false)} onCancel={() => setOpen(false)} />
+            <ContractForm clients={clients} onSuccess={() => setOpen(false)} onCancel={() => setOpen(false)} />
           </DialogContent>
         </Dialog>
       </div>

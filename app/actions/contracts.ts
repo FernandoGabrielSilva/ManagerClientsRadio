@@ -23,6 +23,7 @@ export async function createContractAction(data: z.infer<typeof contractSchema>)
       number: d.number ?? null,
       clientId: d.clientId,
       vendorId: d.vendorId || userId,
+      sellerName: d.sellerName?.trim() || null,
       startDate: new Date(d.startDate),
       endDate: new Date(d.endDate),
       mediaType: d.mediaType,
@@ -122,6 +123,7 @@ export async function getAllContractsForExportAction() {
   return contracts.map((c) => ({
     number: c.number,
     clientName: c.client?.name ?? "",
+    sellerName: c.sellerName ?? c.vendor?.name ?? "",
     mediaType: c.mediaType,
     startDate: c.startDate?.toISOString() ?? null,
     endDate: c.endDate?.toISOString() ?? null,
@@ -144,6 +146,7 @@ export async function importContractsAction(rows: any[]) {
         number: r.number ?? r.Número ?? null,
         clientId: client.id,
         vendorId: userId,
+        sellerName: r.sellerName ?? r["Vendedor"] ?? null,
         startDate: new Date(r.startDate ?? r["Data Início"] ?? new Date()),
         endDate: new Date(r.endDate ?? r["Data Término"] ?? new Date()),
         mediaType: (r.mediaType ?? "spot") as any,
