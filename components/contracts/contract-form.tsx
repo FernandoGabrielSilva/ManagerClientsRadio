@@ -15,7 +15,7 @@ import { z } from "zod";
 
 type Values = z.infer<typeof contractSchema>;
 
-export function ContractForm({ clients, vendors }: { clients: { id: string; name: string }[]; vendors?: { id: string; name: string | null }[] }) {
+export function ContractForm({ clients, vendors, onSuccess, onCancel }: { clients: { id: string; name: string }[]; vendors?: { id: string; name: string | null }[]; onSuccess?: () => void; onCancel?: () => void }) {
   const router = useRouter();
   const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<Values>({
     resolver: zodResolver(contractSchema),
@@ -25,12 +25,13 @@ export function ContractForm({ clients, vendors }: { clients: { id: string; name
   async function onSubmit(values: Values) {
     const res = await createContractAction(values);
     if (res?.error) { toast.add({ title: "Erro", description: res.error }); return; }
+    if (onSuccess) { onSuccess(); router.refresh(); return; }
     router.push("/contracts");
     router.refresh();
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-3xl">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label>Número do contrato</Label>
@@ -93,7 +94,7 @@ export function ContractForm({ clients, vendors }: { clients: { id: string; name
         <Textarea rows={3} {...register("notes")} />
       </div>
       <div className="flex flex-col-reverse sm:flex-row gap-2">
-        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => router.back()}>Cancelar</Button>
+        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => (onCancel ? onCancel() : router.back())}>Cancelar</Button>
         <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>{isSubmitting ? "Salvando..." : "Salvar"}</Button>
       </div>
     </form>

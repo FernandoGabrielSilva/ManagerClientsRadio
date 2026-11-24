@@ -5,12 +5,15 @@ import { useState } from "react";
 import { ExportButton, ImportButton, ExportPdfButton } from "@/components/import-export";
 import { importContractsAction, getAllContractsForExportAction } from "@/app/actions/contracts";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ContractForm } from "@/components/contracts/contract-form";
 import { toast } from "@/components/ui/toast";
 import Link from "next/link";
 import { Plus, FileText as FileTextIcon } from "lucide-react";
 
-export function ContractsToolbar({ contracts, exportContracts, view = "active" }: { contracts: Array<Record<string, unknown>>; exportContracts?: Array<Record<string, unknown>>; view?: string }) {
+export function ContractsToolbar({ contracts, exportContracts, clients = [], vendors = [], view = "active" }: { contracts: Array<Record<string, unknown>>; exportContracts?: Array<Record<string, unknown>>; clients?: { id: string; name: string }[]; vendors?: { id: string; name: string | null }[]; view?: string }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const exportHeaders = [
     "Número",
@@ -112,7 +115,13 @@ export function ContractsToolbar({ contracts, exportContracts, view = "active" }
         />
         <ExportPdfButton getData={async () => (await getExportData()).exportData} filename="contratos.pdf" columns={exportHeaders.map((h) => ({ header: h, dataKey: h }))} loading={exporting} />
         <ImportButton onImport={handleImport} />
-        <Link href="/contracts/new" className="w-full sm:w-auto"><Button className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Novo contrato</Button></Link>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <Button onClick={() => setOpen(true)} className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Novo contrato</Button>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Novo contrato</DialogTitle></DialogHeader>
+            <ContractForm clients={clients} vendors={vendors} onSuccess={() => setOpen(false)} onCancel={() => setOpen(false)} />
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

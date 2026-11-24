@@ -20,13 +20,15 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
       : { archivedAt: null, deletedAt: null };
   const baseWhere = role === "admin" ? {} : { vendorId: userId };
   const where = { ...baseWhere, ...viewWhere };
-  const [contracts, allContracts] = await Promise.all([
+  const [contracts, allContracts, clients, vendors] = await Promise.all([
     prisma.contract.findMany({ where, include: { client: true, vendor: true }, orderBy: { endDate: "asc" } }),
     prisma.contract.findMany({ where: baseWhere, include: { client: true, vendor: true }, orderBy: { endDate: "asc" } }),
+    prisma.client.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   return (
     <div className="space-y-4">
-      <ContractsToolbar contracts={contracts as any} exportContracts={allContracts as any} view={view} />
+      <ContractsToolbar contracts={contracts as any} exportContracts={allContracts as any} clients={clients} vendors={vendors} view={view} />
       <Card className="overflow-hidden"><CardContent className="p-0"><ContractTable contracts={contracts as any} view={view} /></CardContent></Card>
     </div>
   );
