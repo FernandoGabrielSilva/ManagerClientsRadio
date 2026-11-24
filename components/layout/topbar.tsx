@@ -35,7 +35,7 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
     async function loadJobs() {
       try {
         const j = await getBackgroundJobsAction();
-        if (active) setJobs(j as any[]);
+        if (active) setJobs((j as any[]).filter((x) => x.status === "pending" || x.status === "running"));
       } catch {}
     }
     loadJobs();
@@ -138,20 +138,30 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
         <span className="text-sm font-medium text-muted-foreground hidden sm:inline">Painel de gestão</span>
       </div>
       <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-muted relative" aria-label="Progresso">
-            {jobs.some((j) => j.status === "pending" || j.status === "running") ? <Loader2 className="h-4 w-4 animate-spin" /> : <Loader2 className="h-4 w-4 opacity-50" />}
-            {jobs.some((j) => j.status === "pending" || j.status === "running") && <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-sm sm:w-96 p-2">
-            <DropdownMenuGroup><DropdownMenuLabel>Progresso em segundo plano</DropdownMenuLabel></DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <div className="space-y-2 max-h-96 overflow-y-auto p-1">
-              {jobs.length === 0 && <div className="px-2 py-4 text-sm text-muted-foreground text-center">Nenhuma tarefa recente.</div>}
-              {jobs.map((j) => <BackgroundJobStatus key={j.id} jobId={j.id} onDone={() => { getBackgroundJobsAction().then((r) => setJobs(r as any[])).catch(() => {}); }} />)}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {(() => {
+          const activeJobs = jobs.filter((j) => j.status === "pending" || j.status === "running");
+          if (activeJobs.length === 0) return null;
+          const avg = Math.round(activeJobs.reduce((a, j) => a + (j.total > 0 ? Math.min(100, (j.processed / j.total) * 100) : (j.progress ?? 0)), 0) / activeJobs.length);
+          const r = 16; const c = 2 * Math.PI * r; const off = c - (avg / 100) * c;
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-muted relative" aria-label="Progresso">
+                <svg width="36" height="36" viewBox="0 0 36 36" className="-rotate-90">
+                  <circle cx="18" cy="18" r={r} stroke="currentColor" strokeWidth="3" fill="none" className="text-muted/40" />
+                  <circle cx="18" cy="18" r={r} stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" className="text-primary transition-all" />
+                </svg>
+                <span className="absolute text-[9px] font-medium">{avg}%</span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-sm sm:w-96 p-2">
+                <DropdownMenuGroup><DropdownMenuLabel>Progresso em segundo plano</DropdownMenuLabel></DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <div className="space-y-2 max-h-96 overflow-y-auto p-1">
+                  {activeJobs.map((j) => <BackgroundJobStatus key={j.id} jobId={j.id} onDone={() => { getBackgroundJobsAction().then((r) => setJobs((r as any[]).filter((x) => x.status === "pending" || x.status === "running"))).catch(() => {}); }} />)}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        })()}
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-muted relative" aria-label="Notificações">
               <Bell className="h-4 w-4" />
