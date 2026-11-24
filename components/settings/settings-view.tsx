@@ -214,19 +214,21 @@ export function SettingsView({
     toast.add({ title: "Notificação de teste enviada" });
   }
 
-  async function startDeleteSyncedGoogleEvents() {
+  async function startDeleteSyncedGoogleEvents(closeDialog = false) {
+    if (activeJobId) { if (closeDialog) setConfirmDeleteGoogle(false); return; }
     const res = await startDeleteSyncedGoogleEventsJobAction();
-    setConfirmDeleteGoogle(false);
     setActiveJobId(res.jobId);
     setActiveJobTitle("Apagar eventos do site no Google");
+    if (closeDialog) setConfirmDeleteGoogle(false);
     toast.add({ title: "Remoção iniciada", description: "Acompanhe o progresso abaixo." });
   }
 
-  async function startSyncGoogle() {
+  async function startSyncGoogle(closeDialog = false) {
+    if (activeJobId) { if (closeDialog) setConfirmSyncGoogle(false); return; }
     const res = await startSyncGoogleIntegrationJobAction();
-    setConfirmSyncGoogle(false);
     setActiveJobId(res.jobId);
     setActiveJobTitle("Sincronizar Google Agenda");
+    if (closeDialog) setConfirmSyncGoogle(false);
     toast.add({ title: "Sincronização iniciada", description: "Acompanhe o progresso abaixo." });
   }
 
@@ -607,9 +609,9 @@ export function SettingsView({
           </DialogHeader>
           {activeJobId && activeJobTitle === "Apagar eventos do site no Google" && <BackgroundJobStatus jobId={activeJobId} />}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDeleteGoogle(false)}>Cancelar</Button>
-            <Button variant="outline" onClick={() => { setConfirmDeleteGoogle(false); }}>Executar em segundo plano</Button>
-            <Button variant="destructive" onClick={startDeleteSyncedGoogleEvents}>Continuar</Button>
+            <Button variant="outline" onClick={() => setConfirmDeleteGoogle(false)}>Fechar</Button>
+            <Button variant="outline" onClick={() => startDeleteSyncedGoogleEvents(true)} disabled={!!activeJobId}>Executar em segundo plano</Button>
+            <Button variant="destructive" onClick={() => startDeleteSyncedGoogleEvents(false)} disabled={!!activeJobId}>Continuar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -624,9 +626,9 @@ export function SettingsView({
           </DialogHeader>
           {activeJobId && activeJobTitle === "Sincronizar Google Agenda" && <BackgroundJobStatus jobId={activeJobId} />}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmSyncGoogle(false)}>Cancelar</Button>
-            <Button variant="outline" onClick={() => { setConfirmSyncGoogle(false); }}>Executar em segundo plano</Button>
-            <Button onClick={startSyncGoogle}>Continuar</Button>
+            <Button variant="outline" onClick={() => setConfirmSyncGoogle(false)}>Fechar</Button>
+            <Button variant="outline" onClick={() => startSyncGoogle(true)} disabled={!!activeJobId}>Executar em segundo plano</Button>
+            <Button onClick={() => startSyncGoogle(false)} disabled={!!activeJobId}>Continuar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
