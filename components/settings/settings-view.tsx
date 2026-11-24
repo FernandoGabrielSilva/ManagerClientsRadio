@@ -189,6 +189,22 @@ export function SettingsView({
     toast.add({ title: "Notificações do navegador desativadas" });
   }
 
+  async function testBrowserNotification() {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      toast.add({ title: "Navegador não suporta notificações" });
+      return;
+    }
+    if (Notification.permission !== "granted") {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        toast.add({ title: "Permissão negada" });
+        return;
+      }
+    }
+    new Notification("ManagerRadio - Teste", { body: "Esta é uma notificação de teste." });
+    toast.add({ title: "Notificação de teste enviada" });
+  }
+
   async function deleteSyncedGoogleEvents() {
     setDeletingGoogle(true);
     try {
@@ -517,6 +533,11 @@ export function SettingsView({
                       else disableBrowserNotifications();
                     }}
                   />
+                </div>
+                <div>
+                  <Button type="button" variant="outline" onClick={testBrowserNotification}>
+                    Testar notificação
+                  </Button>
                 </div>
                 <div className="space-y-2">
                   <Label>Frequência padrão de contato (dias)</Label>
