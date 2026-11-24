@@ -1,4 +1,4 @@
-# ManagerClientsRadio
+# Raysse Manager
 
 Plataforma interna para gerenciar clientes, contratos e lembretes de uma agência de marketing.
 

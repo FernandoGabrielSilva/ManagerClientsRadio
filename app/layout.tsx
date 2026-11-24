@@ -8,7 +8,7 @@ const jakarta = Plus_Jakarta_Sans({ variable: "--font-jakarta", subsets: ["latin
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ManagerClientsRadio",
+  title: "Raysse Manager",
   description: "Gerenciamento de clientes, contratos e lembretes para agência de marketing",
 };
 

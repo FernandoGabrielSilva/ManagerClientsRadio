@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Termos de Serviço | ManagerClientsRadio",
-  description: "Termos de serviço do ManagerClientsRadio.",
+  title: "Termos de Serviço | Raysse Manager",
+  description: "Termos de serviço do Raysse Manager.",
 };
 
 export default function TermsPage() {
@@ -11,14 +11,14 @@ export default function TermsPage() {
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-3xl px-6 py-12 space-y-8">
         <header className="space-y-2">
-          <p className="text-sm text-muted-foreground">ManagerClientsRadio</p>
+          <p className="text-sm text-muted-foreground">Raysse Manager</p>
           <h1 className="text-3xl font-bold tracking-tight">Termos de Serviço</h1>
           <p className="text-sm text-muted-foreground">Última atualização: 23 de novembro de 2026</p>
         </header>
 
         <section className="space-y-3 text-sm leading-6 text-muted-foreground">
           <p>
-            Ao acessar ou usar o ManagerClientsRadio, você concorda com estes Termos de Serviço.
+            Ao acessar ou usar o Raysse Manager, você concorda com estes Termos de Serviço.
             Se não concordar, não utilize o sistema.
           </p>
         </section>

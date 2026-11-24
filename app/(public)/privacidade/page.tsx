@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Política de Privacidade | ManagerClientsRadio",
-  description: "Política de privacidade do ManagerClientsRadio.",
+  title: "Política de Privacidade | Raysse Manager",
+  description: "Política de privacidade do Raysse Manager.",
 };
 
 export default function PrivacyPage() {
@@ -11,14 +11,14 @@ export default function PrivacyPage() {
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-3xl px-6 py-12 space-y-8">
         <header className="space-y-2">
-          <p className="text-sm text-muted-foreground">ManagerClientsRadio</p>
+          <p className="text-sm text-muted-foreground">Raysse Manager</p>
           <h1 className="text-3xl font-bold tracking-tight">Política de Privacidade</h1>
           <p className="text-sm text-muted-foreground">Última atualização: 23 de novembro de 2026</p>
         </header>
 
         <section className="space-y-3 text-sm leading-6">
           <p>
-            Esta Política de Privacidade descreve como o ManagerClientsRadio coleta, usa e protege
+            Esta Política de Privacidade descreve como o Raysse Manager coleta, usa e protege
             informações ao utilizar o sistema.
           </p>
         </section>

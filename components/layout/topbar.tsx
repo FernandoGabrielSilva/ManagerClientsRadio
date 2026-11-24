@@ -85,7 +85,7 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
                   <Radio className="h-5 w-5" />
                 </div>
                 <div className="text-left">
-                  <div className="font-semibold text-sm">ManagerRadio</div>
+                  <div className="font-semibold text-sm">Raysse Manager</div>
                   <div className="text-xs text-muted-foreground font-normal">Gestão comercial</div>
                 </div>
               </SheetTitle>

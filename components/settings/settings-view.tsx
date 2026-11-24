@@ -176,7 +176,7 @@ export function SettingsView({
     if (perm === "granted") {
       localStorage.setItem("browserNotifEnabled", "true");
       setBrowserEnabled(true);
-      new Notification("ManagerRadio", { body: "Notificações do navegador ativadas." });
+      new Notification("Raysse Manager", { body: "Notificações do navegador ativadas." });
       toast.add({ title: "Notificações ativadas" });
     } else {
       toast.add({ title: "Permissão negada" });
@@ -203,10 +203,10 @@ export function SettingsView({
     }
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready
-        .then((reg) => reg.showNotification("ManagerRadio - Teste", { body: "Esta é uma notificação de teste." }))
-        .catch(() => new Notification("ManagerRadio - Teste", { body: "Esta é uma notificação de teste." }));
+        .then((reg) => reg.showNotification("Raysse Manager - Teste", { body: "Esta é uma notificação de teste." }))
+        .catch(() => new Notification("Raysse Manager - Teste", { body: "Esta é uma notificação de teste." }));
     } else {
-      new Notification("ManagerRadio - Teste", { body: "Esta é uma notificação de teste." });
+      new Notification("Raysse Manager - Teste", { body: "Esta é uma notificação de teste." });
     }
     toast.add({ title: "Notificação de teste enviada" });
   }
