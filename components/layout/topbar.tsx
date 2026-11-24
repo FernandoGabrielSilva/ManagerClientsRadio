@@ -29,6 +29,10 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (localStorage.getItem("browserNotifEnabled") === "false") return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
     let seen = new Set<string>();
     try {
       const raw = localStorage.getItem("seenNotifIds");

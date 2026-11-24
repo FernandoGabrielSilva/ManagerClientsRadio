@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bell as BellIcon } from "lucide-react";
-import { markNotificationReadAction, markAllNotificationsReadAction } from "@/app/actions/notifications";
+import { markNotificationReadAction, markAllNotificationsReadAction, clearNotificationsAction } from "@/app/actions/notifications";
 import { formatDate } from "@/lib/date-utils";
 import Link from "next/link";
 import type { Notification } from "@prisma/client";
@@ -11,7 +11,7 @@ import type { Notification } from "@prisma/client";
 export default async function NotificationsPage() {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const notifs: Notification[] = await prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 50 });
+  const notifs: Notification[] = await prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
 
   return (
     <div className="space-y-4">
@@ -25,9 +25,14 @@ export default async function NotificationsPage() {
             <p className="text-sm text-muted-foreground">Atualizações e alertas do sistema</p>
           </div>
         </div>
-        <form action={async () => { "use server"; await markAllNotificationsReadAction(); }}>
-          <Button type="submit" variant="outline">Marcar todas como lidas</Button>
-        </form>
+        <div className="flex gap-2">
+          <form action={async () => { "use server"; await markAllNotificationsReadAction(); }}>
+            <Button type="submit" variant="outline">Marcar todas como lidas</Button>
+          </form>
+          <form action={async () => { "use server"; await clearNotificationsAction(); }}>
+            <Button type="submit" variant="destructive">Limpar notificações</Button>
+          </form>
+        </div>
       </div>
       <div className="space-y-2">
         {notifs.length === 0 && <p className="text-muted-foreground">Sem notificações.</p>}
