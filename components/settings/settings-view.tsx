@@ -165,7 +165,7 @@ export function SettingsView({
     }
     toast.add({
       title: "Sincronizado",
-      description: `${j.pushed ?? 0} enviado(s) ao Google, ${j.pulled ?? 0} importado(s)${j.errors?.length ? `, ${j.errors.length} erro(s)` : ""}`,
+      description: `${j.pushed ?? 0} enviado(s) ao Google${j.errors?.length ? `, ${j.errors.length} erro(s)` : ""}`,
     });
   }
 
