@@ -28,28 +28,43 @@ export function ContractsToolbar({ contracts, exportContracts, view = "active" }
     setExporting(true);
     try {
       const source = exportContracts ?? await getAllContractsForExportAction();
-      const exportRows = source.map((c: Record<string, unknown>) => [
-        c.number ?? "",
-        c.client?.name ?? c.clientName ?? "",
-        c.mediaType ?? "",
-        c.startDate ? new Date(c.startDate).toLocaleDateString("pt-BR") : "",
-        c.endDate ? new Date(c.endDate).toLocaleDateString("pt-BR") : "",
-        c.insertions ?? "",
-        c.timeSlots ?? "",
-        c.value ?? "",
-        c.status ?? "",
-      ]);
-      const exportData = source.map((c: Record<string, unknown>) => ({
-        "Número": c.number,
-        "Cliente": c.client?.name ?? c.clientName,
-        "Tipo": c.mediaType,
-        "Início": c.startDate,
-        "Término": c.endDate,
-        "Inserções": c.insertions,
-        "Horários": c.timeSlots,
-        "Valor": c.value,
-        "Status": c.status,
-      }));
+      const fmtDate = (v: unknown) => {
+        if (!v) return "";
+        if (v instanceof Date) return v.toLocaleDateString("pt-BR");
+        if (typeof v === "string" || typeof v === "number") return new Date(v).toLocaleDateString("pt-BR");
+        return "";
+      };
+      const str = (v: unknown) => (v == null ? "" : String(v));
+      const exportRows: (string | number | null | undefined)[][] = source.map((raw) => {
+        const c = raw as Record<string, unknown>;
+        const client = c.client as Record<string, unknown> | null | undefined;
+        return [
+          str(c.number),
+          str(client?.name ?? c.clientName),
+          str(c.mediaType),
+          fmtDate(c.startDate),
+          fmtDate(c.endDate),
+          c.insertions as string | number | null | undefined ?? "",
+          str(c.timeSlots),
+          c.value as string | number | null | undefined ?? "",
+          str(c.status),
+        ];
+      });
+      const exportData: Record<string, unknown>[] = source.map((raw) => {
+        const c = raw as Record<string, unknown>;
+        const client = c.client as Record<string, unknown> | null | undefined;
+        return {
+          "Número": c.number,
+          "Cliente": client?.name ?? c.clientName,
+          "Tipo": c.mediaType,
+          "Início": c.startDate,
+          "Término": c.endDate,
+          "Inserções": c.insertions,
+          "Horários": c.timeSlots,
+          "Valor": c.value,
+          "Status": c.status,
+        };
+      });
       return { exportRows, exportData };
     } finally {
       setExporting(false);

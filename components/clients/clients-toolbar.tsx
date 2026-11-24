@@ -35,36 +35,49 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
     setExporting(true);
     try {
       const source = exportClients ?? await getAllClientsForExportAction();
-      const exportRows = source.map((c: Record<string, unknown>) => [
-        c.name ?? "",
-        c.responsible ?? "",
-        c.contactName ?? "",
-        c.phone ?? "",
-        c.commercialStatus ?? c.contractStatus ?? "",
-        c.contractValue ?? "",
-        c.lastContactAt ? new Date(c.lastContactAt).toLocaleDateString("pt-BR") : "",
-        c.contactType ?? "",
-        c.nextAction ?? "",
-        c.nextActionDate ? new Date(c.nextActionDate).toLocaleDateString("pt-BR") : "",
-        c.notes ?? "",
-        c.dateConference ? new Date(c.dateConference).toLocaleDateString("pt-BR") : (c.dateConference ?? ""),
-        c.videoWeekday ?? "",
-      ]);
-      const exportData = source.map((c: Record<string, unknown>) => ({
-        "Cliente / anunciante": c.name,
-        "Responsável": c.responsible,
-        "Contato / decisor": c.contactName,
-        "WhatsApp": c.phone,
-        "Situação comercial": c.commercialStatus ?? c.contractStatus,
-        "Valor proposto (R$)": c.contractValue,
-        "Último contato": c.lastContactAt,
-        "Tipo de contato": c.contactType,
-        "Próxima ação": c.nextAction,
-        "Data próxima ação": c.nextActionDate,
-        "Histórico / observações": c.notes,
-        "Conferência de datas": c.dateConference,
-        "Dias Vídeo": c.videoWeekday,
-      }));
+      const fmtDate = (v: unknown) => {
+        if (!v) return "";
+        if (v instanceof Date) return v.toLocaleDateString("pt-BR");
+        if (typeof v === "string" || typeof v === "number") return new Date(v).toLocaleDateString("pt-BR");
+        return "";
+      };
+      const str = (v: unknown) => (v == null ? "" : String(v));
+      const exportRows: (string | number | null | undefined)[][] = source.map((raw) => {
+        const c = raw as Record<string, unknown>;
+        return [
+          str(c.name),
+          str(c.responsible),
+          str(c.contactName),
+          str(c.phone),
+          str(c.commercialStatus ?? c.contractStatus),
+          c.contractValue as string | number | null | undefined ?? "",
+          fmtDate(c.lastContactAt),
+          str(c.contactType),
+          str(c.nextAction),
+          fmtDate(c.nextActionDate),
+          str(c.notes),
+          fmtDate(c.dateConference),
+          str(c.videoWeekday),
+        ];
+      });
+      const exportData: Record<string, unknown>[] = source.map((raw) => {
+        const c = raw as Record<string, unknown>;
+        return {
+          "Cliente / anunciante": c.name,
+          "Responsável": c.responsible,
+          "Contato / decisor": c.contactName,
+          "WhatsApp": c.phone,
+          "Situação comercial": c.commercialStatus ?? c.contractStatus,
+          "Valor proposto (R$)": c.contractValue,
+          "Último contato": c.lastContactAt,
+          "Tipo de contato": c.contactType,
+          "Próxima ação": c.nextAction,
+          "Data próxima ação": c.nextActionDate,
+          "Histórico / observações": c.notes,
+          "Conferência de datas": c.dateConference,
+          "Dias Vídeo": c.videoWeekday,
+        };
+      });
       return { exportRows, exportData };
     } finally {
       setExporting(false);
