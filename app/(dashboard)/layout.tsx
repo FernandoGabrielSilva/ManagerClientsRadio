@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Topbar } from "@/components/layout/topbar";
+import { GlobalJobStatus } from "@/components/background-jobs/global-job-status";
 
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Topbar user={user} notifications={notifications} />
           <main className="flex-1 p-4 md:p-6"><div className="mx-auto w-full space-y-6">{children}</div></main>
         </div>
+        <GlobalJobStatus />
       </div>
     </ThemeProvider>
   );
