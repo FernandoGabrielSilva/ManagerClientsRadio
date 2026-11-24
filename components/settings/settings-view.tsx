@@ -147,6 +147,17 @@ export function SettingsView({
     toast.add({ title: "Preferências salvas" });
   }
 
+  async function saveGooglePrefs(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    await updateNotificationPrefsAction({
+      autoCreateEvents: fd.get("autoCreateEvents") === "on",
+      googleCalendarId: (fd.get("calId") as string) || null,
+    });
+    toast.add({ title: "Integração salva" });
+    router.refresh();
+  }
+
   async function deleteSyncedGoogleEvents() {
     setDeletingGoogle(true);
     try {
@@ -418,6 +429,30 @@ export function SettingsView({
                     </Button>
                   </div>
                 )}
+                <form onSubmit={saveGooglePrefs} className="flex flex-col gap-4 max-w-md pt-4">
+                  <div className="flex items-center justify-between">
+                    <Label>Criar eventos automaticamente</Label>
+                    <Switch
+                      name="autoCreateEvents"
+                      checked={autoCreateEvents}
+                      onCheckedChange={setAutoCreateEvents}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Google Calendar ID</Label>
+                    <Input
+                      name="calId"
+                      defaultValue={user.googleCalendarId ?? "primary"}
+                      className="w-full bg-background border-input"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Use <code>primary</code> para o calendário principal da conta Google conectada.
+                    </p>
+                  </div>
+                  <div>
+                    <Button type="submit">Salvar integração</Button>
+                  </div>
+                </form>
               </div>
             </div>
           )}
@@ -439,14 +474,6 @@ export function SettingsView({
                     onCheckedChange={setNotificationsEnabled}
                   />
                 </div>
-                <div className="flex items-center justify-between">
-                  <Label>Criar eventos automaticamente</Label>
-                  <Switch
-                    name="autoCreateEvents"
-                    checked={autoCreateEvents}
-                    onCheckedChange={setAutoCreateEvents}
-                  />
-                </div>
                 <div className="space-y-2">
                   <Label>Frequência padrão de contato (dias)</Label>
                   <Input
@@ -455,17 +482,6 @@ export function SettingsView({
                     defaultValue={user.defaultContactFrequency}
                     className="w-full bg-background border-input"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label>Google Calendar ID</Label>
-                  <Input
-                    name="calId"
-                    defaultValue={user.googleCalendarId ?? "primary"}
-                    className="w-full bg-background border-input"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Use <code>primary</code> para o calendário principal da conta Google conectada.
-                  </p>
                 </div>
                 <div>
                   <Button type="submit">Salvar</Button>
