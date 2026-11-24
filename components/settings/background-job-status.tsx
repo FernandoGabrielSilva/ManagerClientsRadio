@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { getBackgroundJobAction } from "@/app/actions/background-jobs";
 
@@ -17,6 +17,7 @@ type Job = {
 
 export function BackgroundJobStatus({ jobId, onDone }: { jobId: string; onDone?: (job: Job) => void }) {
   const [job, setJob] = useState<Job | null>(null);
+  const doneRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -27,10 +28,12 @@ export function BackgroundJobStatus({ jobId, onDone }: { jobId: string; onDone?:
         if (!active || !j) return;
         const next = j as Job;
         setJob(next);
-        if (next.status === "completed" || next.status === "failed" || next.status === "cancelled") {
+        if ((next.status === "completed" || next.status === "failed" || next.status === "cancelled") && !doneRef.current) {
+          doneRef.current = true;
           onDone?.(next);
           return;
         }
+        if (next.status === "completed" || next.status === "failed" || next.status === "cancelled") return;
       } catch { /* ignore transient */ }
       timer = setTimeout(poll, 1500);
     };
