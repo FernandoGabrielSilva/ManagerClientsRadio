@@ -29,6 +29,9 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
     if (localStorage.getItem("browserNotifEnabled") === "false") return;
     if (Notification.permission === "default") {
       Notification.requestPermission();
@@ -49,7 +52,13 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
           if (!seen.has(n.id)) {
             seen.add(n.id);
             changed = true;
-            new Notification(n.title, { body: n.message });
+            if ("serviceWorker" in navigator) {
+              navigator.serviceWorker.ready
+                .then((reg) => reg.showNotification(n.title, { body: n.message }))
+                .catch(() => new Notification(n.title, { body: n.message }));
+            } else {
+              new Notification(n.title, { body: n.message });
+            }
           }
         }
         if (changed) localStorage.setItem("seenNotifIds", JSON.stringify([...seen]));

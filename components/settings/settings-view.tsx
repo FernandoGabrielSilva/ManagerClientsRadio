@@ -201,7 +201,13 @@ export function SettingsView({
         return;
       }
     }
-    new Notification("ManagerRadio - Teste", { body: "Esta é uma notificação de teste." });
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready
+        .then((reg) => reg.showNotification("ManagerRadio - Teste", { body: "Esta é uma notificação de teste." }))
+        .catch(() => new Notification("ManagerRadio - Teste", { body: "Esta é uma notificação de teste." }));
+    } else {
+      new Notification("ManagerRadio - Teste", { body: "Esta é uma notificação de teste." });
+    }
     toast.add({ title: "Notificação de teste enviada" });
   }
 
