@@ -90,13 +90,13 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
               <div className="px-2 py-4 text-sm text-muted-foreground text-center">Sem notificações.</div>
             )}
             {(notifications ?? []).map((n) => (
-              <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5 py-2" onSelect={() => { if (n.link) router.push(n.link); }}>
+              <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5 py-2" onClick={() => { if (n.link) router.push(n.link); }}>
                 <span className={cn("text-sm font-medium", n.read && "text-muted-foreground")}>{n.title}</span>
                 <span className="text-xs text-muted-foreground line-clamp-2">{n.message}</span>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => router.push("/notifications")}>Ver todas</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/notifications")}>Ver todas</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <DropdownMenu>
@@ -115,8 +115,8 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
               </div>
             </DropdownMenuLabel></DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => router.push("/settings")}>Configurações</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => signOut({ callbackUrl: "/login" })}>Sair</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/settings")}>Configurações</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })}>Sair</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -19,7 +19,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Sidebar />
         <div className="flex-1 min-w-0 flex flex-col">
           <Topbar user={user} notifications={notifications} />
-          <main className="flex-1 p-4 md:p-6"><div className="mx-auto w-full max-w-[1400px] space-y-6">{children}</div></main>
+          <main className="flex-1 p-4 md:p-6"><div className="mx-auto w-full space-y-6">{children}</div></main>
         </div>
       </div>
     </ThemeProvider>

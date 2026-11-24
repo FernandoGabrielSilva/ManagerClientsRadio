@@ -10,6 +10,7 @@ import {
   Plug,
   Bell,
   Users as UsersIcon,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,8 @@ export function SettingsView({
   );
   const [tab, setTab] = useState("profile");
   const [confirmPushAll, setConfirmPushAll] = useState(false);
+  const [confirmDeleteGoogle, setConfirmDeleteGoogle] = useState(false);
+  const [deletingGoogle, setDeletingGoogle] = useState(false);
   const [pushingAll, setPushingAll] = useState(false);
 
   async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
@@ -143,9 +146,14 @@ export function SettingsView({
   }
 
   async function deleteSyncedGoogleEvents() {
-    if (!confirm("Apagar todos os eventos criados pelo site no Google Agenda? Os eventos locais serão mantidos.")) return;
-    const res = await deleteAllSyncedGoogleEventsAction();
-    toast.add({ title: "Eventos removidos", description: `${res.deleted ?? 0} de ${res.total ?? 0} removidos no Google` });
+    setDeletingGoogle(true);
+    try {
+      const res = await deleteAllSyncedGoogleEventsAction();
+      setConfirmDeleteGoogle(false);
+      toast.add({ title: "Eventos removidos", description: `${res.deleted ?? 0} de ${res.total ?? 0} removidos no Google` });
+    } finally {
+      setDeletingGoogle(false);
+    }
   }
 
   async function syncGoogle() {
@@ -298,9 +306,6 @@ export function SettingsView({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button type="submit">Salvar</Button>
-                  <Button type="button" variant="destructive" onClick={deleteSyncedGoogleEvents}>
-                    Apagar eventos do site no Google
-                  </Button>
                 </div>
               </form>
               <p className="text-xs text-muted-foreground max-w-md">
@@ -397,8 +402,8 @@ export function SettingsView({
                     <Button variant="outline" onClick={syncGoogle}>
                       Sincronizar agora
                     </Button>
-                    <Button variant="outline" onClick={() => setConfirmPushAll(true)}>
-                      Enviar todos eventos ao Google
+                    <Button variant="destructive" onClick={() => setConfirmDeleteGoogle(true)}>
+                      Apagar eventos do site no Google
                     </Button>
                     <Button
                       variant="destructive"
@@ -518,6 +523,24 @@ export function SettingsView({
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmPushAll(false)} disabled={pushingAll}>Cancelar</Button>
             <Button onClick={pushAllToGoogle} disabled={pushingAll}>{pushingAll ? "Enviando..." : "Enviar eventos"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmDeleteGoogle} onOpenChange={setConfirmDeleteGoogle}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apagar eventos do site no Google Agenda</DialogTitle>
+            <DialogDescription>
+              Serão removidos apenas os eventos criados pelo site (que possuem vínculo). Eventos já existentes no Google Agenda não serão afetados. Os eventos locais serão mantidos.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteGoogle(false)} disabled={deletingGoogle}>Cancelar</Button>
+            <Button variant="destructive" onClick={deleteSyncedGoogleEvents} disabled={deletingGoogle}>
+              {deletingGoogle && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {deletingGoogle ? "Apagando..." : "Continuar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

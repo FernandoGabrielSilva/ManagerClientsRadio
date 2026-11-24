@@ -39,6 +39,24 @@ async function pushEventToGoogle(userId: string, event: { id: string; title: str
   }
 }
 
+export async function deleteEventsForClients(userId: string, clientIds: string[]) {
+  if (clientIds.length === 0) return;
+  const user = await getGoogleUser(userId);
+  const events = await prisma.event.findMany({ where: { userId, clientId: { in: clientIds } } });
+  if (user?.googleCalendarConnected && user.googleAccessToken) {
+    const calendarId = user.googleCalendarId || "primary";
+    for (const ev of events) {
+      if (!ev.googleEventId) continue;
+      try {
+        await deleteCalendarEvent(user.googleAccessToken, user.googleRefreshToken, calendarId, ev.googleEventId);
+      } catch (e) {
+        console.error("google delete error", e);
+      }
+    }
+  }
+  await prisma.event.deleteMany({ where: { userId, clientId: { in: clientIds } } });
+}
+
 export async function syncPendingGoogleEventsForUser(userId: string) {
   const user = await getGoogleUser(userId);
   if (!user?.googleCalendarConnected || !user.autoCreateEvents || !user.googleAccessToken) return { pushed: 0 };

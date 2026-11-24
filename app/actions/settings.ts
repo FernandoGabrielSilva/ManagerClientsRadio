@@ -82,13 +82,13 @@ export async function deleteAllSyncedGoogleEventsAction() {
       if (!ev.googleEventId) continue;
       try {
         await deleteCalendarEvent(user.googleAccessToken, user.googleRefreshToken, calendarId, ev.googleEventId);
+        await prisma.event.update({ where: { id: ev.id }, data: { googleEventId: null } });
         deleted++;
       } catch (e) {
         console.error("google bulk delete error", e);
       }
     }
   }
-  await prisma.event.updateMany({ where: { userId, googleEventId: { not: null } }, data: { googleEventId: null } });
   revalidatePath("/calendar");
   revalidatePath("/settings");
   return { success: true, deleted, total: events.length };

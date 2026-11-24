@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { clientSchema } from "@/lib/validators";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { ensureClientContactEventsForUser, deleteEventsForClients } from "./events";
 
 async function getUserId() {
   const session = await auth();
@@ -14,11 +15,13 @@ async function getUserId() {
 }
 
 export async function createClientAction(data: z.infer<typeof clientSchema>) {
-  const userId = await getUserId();
+  const session = await auth();
+  const userId = session!.user!.id as string;
+  const role = (session!.user as any).role;
   const parsed = clientSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   const d = parsed.data;
-  await prisma.client.create({
+  const client = await prisma.client.create({
     data: {
       userId,
       vendorId: d.vendorId || null,
@@ -51,6 +54,7 @@ export async function createClientAction(data: z.infer<typeof clientSchema>) {
       dateConference: d.dateConference ? new Date(d.dateConference) : null,
     },
   });
+  await ensureClientContactEventsForUser(userId, role);
   revalidatePath("/clients");
   revalidatePath("/dashboard");
   return { success: true };
@@ -107,6 +111,7 @@ export async function deleteClientAction(id: string) {
   const where: Prisma.ClientWhereInput = { id };
   if (role !== "admin") where.OR = [{ userId }, { vendorId: userId }];
   await prisma.client.updateMany({ where, data: { deletedAt: new Date(), archivedAt: null } });
+  await deleteEventsForClients(userId, [id]);
   revalidatePath("/clients");
   revalidatePath("/dashboard");
   return { success: true };
@@ -130,6 +135,7 @@ export async function deleteClientsAction(ids: string[]) {
   const where: Prisma.ClientWhereInput = { id: { in: ids } };
   if (role !== "admin") where.OR = [{ userId }, { vendorId: userId }];
   await prisma.client.updateMany({ where, data: { deletedAt: new Date(), archivedAt: null } });
+  await deleteEventsForClients(userId, ids);
   revalidatePath("/clients");
   revalidatePath("/dashboard");
   return { success: true };
@@ -142,6 +148,7 @@ export async function restoreClientsAction(ids: string[]) {
   const where: Prisma.ClientWhereInput = { id: { in: ids } };
   if (role !== "admin") where.OR = [{ userId }, { vendorId: userId }];
   await prisma.client.updateMany({ where, data: { archivedAt: null, deletedAt: null } });
+  await ensureClientContactEventsForUser(userId, role);
   revalidatePath("/clients");
   return { success: true };
 }
@@ -156,6 +163,7 @@ export async function permanentDeleteClientsAction(ids: string[]) {
   const role = (session!.user as any).role;
   const where: Prisma.ClientWhereInput = { id: { in: ids } };
   if (role !== "admin") where.OR = [{ userId }, { vendorId: userId }];
+  await deleteEventsForClients(userId, ids);
   await prisma.client.deleteMany({ where });
   revalidatePath("/clients");
   return { success: true };
@@ -218,7 +226,9 @@ function toNumberValue(v: any): number | null {
 }
 
 export async function importClientsAction(rows: any[]) {
-  const userId = await getUserId();
+  const session = await auth();
+  const userId = session!.user!.id as string;
+  const role = (session!.user as any).role;
   let count = 0;
   for (const r of rows) {
     await prisma.client.create({
@@ -245,6 +255,7 @@ export async function importClientsAction(rows: any[]) {
     });
     count++;
   }
+  await ensureClientContactEventsForUser(userId, role);
   revalidatePath("/clients");
   return { success: true, count };
 }
