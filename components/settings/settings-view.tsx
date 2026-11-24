@@ -497,7 +497,7 @@ export function SettingsView({
                 onSubmit={saveNotifs}
                 className="flex flex-col gap-4 max-w-md"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <Label>Notificações ativadas</Label>
                   <Switch
                     name="notificationsEnabled"
@@ -505,6 +505,16 @@ export function SettingsView({
                     onCheckedChange={(v) => {
                       setNotificationsEnabled(v);
                       if (v) enableBrowserNotifications();
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <Label>Notificações do navegador</Label>
+                  <Switch
+                    checked={browserEnabled}
+                    onCheckedChange={(v) => {
+                      if (v) enableBrowserNotifications();
+                      else disableBrowserNotifications();
                     }}
                   />
                 </div>
@@ -521,18 +531,6 @@ export function SettingsView({
                   <Button type="submit">Salvar</Button>
                 </div>
               </form>
-              <div className="flex flex-wrap gap-2 pt-2">
-                <div className="flex items-center justify-between">
-                  <Label>Notificações do navegador</Label>
-                  <Switch
-                    checked={browserEnabled}
-                    onCheckedChange={(v) => {
-                      if (v) enableBrowserNotifications();
-                      else disableBrowserNotifications();
-                    }}
-                  />
-                </div>
-              </div>
             </div>
           )}
 
