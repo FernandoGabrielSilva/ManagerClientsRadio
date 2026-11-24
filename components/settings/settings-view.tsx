@@ -501,7 +501,10 @@ export function SettingsView({
                   <Switch
                     name="notificationsEnabled"
                     checked={notificationsEnabled}
-                    onCheckedChange={setNotificationsEnabled}
+                    onCheckedChange={(v) => {
+                      setNotificationsEnabled(v);
+                      if (v) enableBrowserNotifications();
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
