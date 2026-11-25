@@ -29,10 +29,6 @@ export async function createCalendarEvent(
       const next = new Date(event.start);
       next.setUTCDate(next.getUTCDate() + 1);
       endStr = next.toISOString().slice(0, 10);
-    } else {
-      const next = new Date(endBase);
-      next.setUTCDate(next.getUTCDate() + 1);
-      endStr = next.toISOString().slice(0, 10);
     }
     body.start = { date: startStr };
     body.end = { date: endStr };
