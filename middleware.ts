@@ -15,6 +15,7 @@ export async function middleware(req: NextRequest) {
     isApiAuth ||
     isCron ||
     req.nextUrl.pathname.startsWith("/_next") ||
+    req.nextUrl.pathname === "/" ||
     req.nextUrl.pathname === "/favicon.ico" ||
     req.nextUrl.pathname === "/privacidade" ||
     req.nextUrl.pathname === "/termos";

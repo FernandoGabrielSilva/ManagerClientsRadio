@@ -1,0 +1,12 @@
+# *
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /settings
+
+# Host
+Host: https://rayssemanager.vercel.app
+
+# Sitemaps
+Sitemap: https://rayssemanager.vercel.app/sitemap.xml
