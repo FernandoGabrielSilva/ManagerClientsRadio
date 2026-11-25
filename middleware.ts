@@ -17,6 +17,9 @@ export async function middleware(req: NextRequest) {
     req.nextUrl.pathname.startsWith("/_next") ||
     req.nextUrl.pathname === "/" ||
     req.nextUrl.pathname === "/favicon.ico" ||
+    req.nextUrl.pathname === "/robots.txt" ||
+    req.nextUrl.pathname === "/sitemap.xml" ||
+    req.nextUrl.pathname.startsWith("/sitemap-") ||
     req.nextUrl.pathname === "/privacidade" ||
     req.nextUrl.pathname === "/termos";
 
