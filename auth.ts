@@ -23,6 +23,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             "openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events",
            access_type: "offline",
            prompt: "select_account",
+           max_age: 0,
         },
       },
     }),
