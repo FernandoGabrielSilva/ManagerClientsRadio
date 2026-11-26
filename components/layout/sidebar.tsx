@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, CalendarDays, FileText, Settings, LogOut, Radio, Trash2 } from "lucide-react";
+import { LayoutDashboard, Users, CalendarDays, FileText, Settings, LogOut, Radio, Trash2, FileSpreadsheet } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 
@@ -10,8 +10,8 @@ const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, hint: "Visão geral" },
   { href: "/clients", label: "Clientes", icon: Users, hint: "Carteira" },
   { href: "/contracts", label: "Contratos", icon: FileText, hint: "Acordos" },
+  { href: "/spreadsheet", label: "Planilha", icon: FileSpreadsheet, hint: "Modelo completo" },
   { href: "/trash", label: "Lixeira", icon: Trash2, hint: "Excluídos" },
-  { href: "/calendar", label: "Calendário", icon: CalendarDays, hint: "Agenda" },
   { href: "/settings", label: "Configurações", icon: Settings, hint: "Conta" },
 ];
 

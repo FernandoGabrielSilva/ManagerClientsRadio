@@ -1,9 +1,11 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { isContactOverdue, isContractExpiringSoon, isVideoDueToday, daysSinceContact, formatDate } from "@/lib/date-utils";
+import { diffDays, toDate } from "@/lib/spreadsheet";
 import Link from "next/link";
-import { Video, Phone, FileText, Users, AlertTriangle } from "lucide-react";
+import { Video, Phone, FileText, Users, AlertTriangle, CalendarDays } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
+import { CalendarView } from "@/components/calendar/calendar-view";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Client, Contract, Notification } from "@prisma/client";
 
@@ -20,9 +22,12 @@ export default async function DashboardPage() {
     include: { client: true },
   });
   const notifications: Notification[] = await prisma.notification.findMany({ where: { userId, read: false }, orderBy: { createdAt: "desc" }, take: 6 });
+  const vendors = await prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
+  const calendarClients = clients.map((c: Client) => ({ id: c.id, name: c.name, lastContactAt: c.lastContactAt, contactFrequencyDays: c.contactFrequencyDays, vendorId: c.vendorId }));
 
   const videoToday = clients.filter((c: Client) => isVideoDueToday(c.videoWeekday));
   const contactOverdue = clients.filter((c: Client) => isContactOverdue(c.lastContactAt, c.contactFrequencyDays));
+  const visitsToday = clients.filter((c: Client) => diffDays(toDate(c.nextActionDate)) === 0);
   const expiring = clients.filter((c: Client) => isContractExpiringSoon(c.contractEnd, 30));
   const activeCount = clients.filter((c: Client) => c.contractStatus === "active").length;
   const adChange = clients.filter((c: Client) => c.needsAdChange);
@@ -34,7 +39,7 @@ export default async function DashboardPage() {
   }, {});
   const contractStatusCounts = contracts.reduce<Record<string, number>>((acc: Record<string, number>, c: ContractWithClient) => {
     const days = Math.floor((new Date(c.endDate).getTime() - Date.now()) / 86400000);
-    const key = days < 0 ? "Vencido" : days <= 15 ? "Perto de Vencer" : "Ativo";
+    const key = days < 0 ? "Vencido" : days <= 30 ? "Perto de Vencer" : "Ativo";
     acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
@@ -46,6 +51,7 @@ export default async function DashboardPage() {
   const totalValue = contracts.reduce((s: number, c: ContractWithClient) => s + (c.value ?? 0), 0);
 
   const stats = [
+    { label: "Visitas hoje", value: visitsToday.length, icon: Phone, tone: "text-primary" },
     { label: "Vídeo hoje", value: videoToday.length, icon: Video, tone: "text-primary" },
     { label: "Contato atrasado", value: contactOverdue.length, icon: Phone, tone: "text-destructive" },
     { label: "Contratos a vencer", value: expiring.length, icon: FileText, tone: "text-amber-500" },
@@ -60,7 +66,7 @@ export default async function DashboardPage() {
         actions={<span className="text-sm text-muted-foreground">{clients.length} clientes na base</span>}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {stats.map((s) => {
           const Icon = s.icon;
           return (
@@ -79,15 +85,21 @@ export default async function DashboardPage() {
         })}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-foreground/80">Ações pendentes</h2>
           <Card>
             <CardContent className="p-0">
-              {videoToday.length === 0 && contactOverdue.length === 0 && adChange.length === 0 ? (
+              {visitsToday.length === 0 && videoToday.length === 0 && contactOverdue.length === 0 && adChange.length === 0 ? (
                 <div className="p-8 text-sm text-muted-foreground text-center">Nenhuma ação pendente.</div>
               ) : (
                 <div className="max-h-80 overflow-auto divide-y">
+                  {visitsToday.map((c: Client) => (
+                    <Link key={`visit-${c.id}`} href={`/clients/${c.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
+                      <span className="flex min-w-0 items-center gap-2"><CalendarDays className="h-4 w-4 text-primary shrink-0" /><span className="truncate">Visitar <span className="font-medium">{c.name}</span>{c.nextAction ? ` — ${c.nextAction}` : ""}</span></span>
+                      <span className="text-xs text-muted-foreground shrink-0">Hoje</span>
+                    </Link>
+                  ))}
                   {videoToday.map((c: Client) => (
                     <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
                       <span className="flex min-w-0 items-center gap-2"><Video className="h-4 w-4 text-primary shrink-0" /><span className="truncate">Enviar vídeo para <span className="font-medium">{c.name}</span></span></span>
@@ -130,6 +142,11 @@ export default async function DashboardPage() {
               )}
             </CardContent>
           </Card>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground/80">Calendário e agenda</h2>
+          <CalendarView vendors={vendors as any} clients={calendarClients as any} />
         </section>
       </div>
 

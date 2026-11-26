@@ -89,6 +89,10 @@ async function syncPendingGoogleEventsForUserInternal(userId: string) {
   return { pushed };
 }
 
+export async function syncPendingGoogleEventsForUserInBackground(userId: string) {
+  return syncPendingGoogleEventsForUserInternal(userId);
+}
+
 export async function syncPendingGoogleEventsForUser(userId: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Não autenticado");
@@ -148,6 +152,10 @@ export async function listEventsAction(start: string, end: string) {
     where: { userId, start: { gte: new Date(start), lte: new Date(end) } },
     include: { client: true },
   });
+}
+
+export async function ensureClientContactEventsForUserInBackground(userId: string, role?: string, opts?: { revalidate?: boolean }) {
+  return ensureClientContactEventsForUserInternal(userId, role, opts);
 }
 
 export async function ensureClientContactEventsAction() {

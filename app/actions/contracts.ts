@@ -25,18 +25,30 @@ export async function createContractAction(data: z.infer<typeof contractSchema>)
   if (role !== "admin") clientWhere.OR = [{ userId }, { vendorId: userId }];
   const client = await prisma.client.findFirst({ where: clientWhere, select: { id: true } });
   if (!client) return { error: "Cliente não encontrado" };
+  const startDate = new Date(d.startDate);
+  const endDate = d.endDate
+    ? new Date(d.endDate)
+    : new Date(startDate.getFullYear(), startDate.getMonth() + (d.durationMonths ?? 1), startDate.getDate());
+  const days = Math.floor((endDate.getTime() - Date.now()) / 86400000);
   await prisma.contract.create({
     data: {
-      number: d.number ?? null,
+      number: d.number?.trim() || null,
       clientId: d.clientId,
       vendorId: role === "admin" ? (d.vendorId || userId) : userId,
       sellerName: d.sellerName?.trim() || null,
-      startDate: new Date(d.startDate),
-      endDate: new Date(d.endDate),
-      mediaType: d.mediaType,
-      insertions: d.insertions ?? null,
+      program: d.program?.trim() || null,
+      startDate,
+      durationMonths: d.durationMonths ?? null,
+      endDate,
+      mediaType: d.mediaType?.trim() || "Spot 30s",
+      insertions: d.insertions ?? d.insertionsPerMonth ?? null,
+      insertionsPerDay: d.insertionsPerDay ?? null,
+      insertionsPerMonth: d.insertionsPerMonth ?? null,
       timeSlots: d.timeSlots ?? null,
       value: d.value ?? null,
+      totalValue: d.totalValue ?? null,
+      paymentInfo: d.paymentInfo ?? null,
+      status: days < 0 ? "expired" : days <= 30 ? "near_expiry" : "active",
       notes: d.notes ?? null,
     },
   });
@@ -144,13 +156,20 @@ export async function getAllContractsForExportAction() {
     number: c.number,
     clientName: c.client?.name ?? "",
     sellerName: c.sellerName ?? c.vendor?.name ?? "",
+    program: c.program,
     mediaType: c.mediaType,
     startDate: c.startDate?.toISOString() ?? null,
+    durationMonths: c.durationMonths,
     endDate: c.endDate?.toISOString() ?? null,
     insertions: c.insertions,
+    insertionsPerDay: c.insertionsPerDay,
+    insertionsPerMonth: c.insertionsPerMonth,
     timeSlots: c.timeSlots,
     value: c.value,
+    totalValue: c.totalValue,
+    paymentInfo: c.paymentInfo,
     status: c.status,
+    notes: c.notes,
   }));
 }
 
@@ -159,18 +178,17 @@ function normImportDate(v: unknown) { const d = v instanceof Date ? v : new Date
 function normImportNum(v: unknown) { const n = Number(String(v ?? "").replace(/[^0-9,.-]/g, "").replace(",", ".")); return Number.isFinite(n) && String(v ?? "").trim() !== "" ? String(n) : ""; }
 
 function contractImportKey(r: Record<string, any>, clientId: string) {
-  const mediaType = (["spot", "sponsorship", "testimonial", "other"].includes(String(r.mediaType)) ? String(r.mediaType) : "spot");
   return [
     clientId,
-    normImportText(r.number ?? r.Número),
-    normImportText(r.sellerName ?? r["Vendedor"]),
-    mediaType,
-    normImportDate(r.startDate ?? r["Data Início"]),
-    normImportDate(r.endDate ?? r["Data Término"]),
-    normImportNum(r.insertions ?? r.Inserções),
-    normImportText(r.timeSlots ?? r.Horários),
-    normImportNum(r.value ?? r.Valor),
-    normImportText(r.notes ?? r.Observações),
+    normImportText(r.number ?? r["Nº Contrato / PI"] ?? r.Número),
+    normImportText(r.sellerName ?? r["Vendedor Responsável"] ?? r["Vendedor"]),
+    normImportText(r.mediaType ?? r["Tipo de Mídia"] ?? "Spot 30s"),
+    normImportDate(r.startDate ?? r["Data de Início"] ?? r["Data Início"]),
+    normImportDate(r.endDate ?? r["Data de Término (Auto)"] ?? r["Data Término"]),
+    normImportNum(r.insertions ?? r.insertionsPerMonth ?? r["Total Inserções / Mês"] ?? r.Inserções),
+    normImportText(r.timeSlots ?? r["Horários de Veiculação"] ?? r.Horários),
+    normImportNum(r.value ?? r["Valor Mensal (R$)"] ?? r.Valor),
+    normImportText(r.notes ?? r["Observações de Veiculação"] ?? r.Observações),
   ].join("|");
 }
 
@@ -179,7 +197,7 @@ function existingContractKey(c: any) {
     String(c.clientId),
     normImportText(c.number),
     normImportText(c.sellerName),
-    String(c.mediaType ?? "spot"),
+    normImportText(c.mediaType ?? "Spot 30s"),
     normImportDate(c.startDate),
     normImportDate(c.endDate),
     normImportNum(c.insertions),
@@ -202,7 +220,7 @@ export async function importContractsAction(rows: any[]) {
   let skipped = 0;
   for (const r of safeRows) {
     if (!r || typeof r !== "object") { skipped++; continue; }
-    const clientName = String(r.client ?? r.Cliente ?? "").trim();
+    const clientName = String(r.client ?? r["Cliente / Anunciante"] ?? r.Cliente ?? "").trim();
     if (!clientName) { skipped++; continue; }
     const clientWhere: Prisma.ClientWhereInput = { name: clientName };
     if (role !== "admin") clientWhere.OR = [{ userId }, { vendorId: userId }];
@@ -210,21 +228,32 @@ export async function importContractsAction(rows: any[]) {
     if (!client) { skipped++; continue; }
     const key = contractImportKey(r, client.id);
     if (seen.has(key)) { skipped++; continue; }
-    const start = new Date(r.startDate ?? r["Data Início"] ?? new Date());
-    const end = new Date(r.endDate ?? r["Data Término"] ?? new Date());
+    const start = new Date(r.startDate ?? r["Data de Início"] ?? r["Data Início"] ?? new Date());
+    const duration = Number(r.durationMonths ?? r["Duração (Meses)"] ?? 0) || null;
+    const endRaw = r.endDate ?? r["Data de Término (Auto)"] ?? r["Data Término"];
+    const end = endRaw ? new Date(endRaw) : new Date(start.getFullYear(), start.getMonth() + (duration ?? 1), start.getDate());
+    const endDate = Number.isNaN(end.getTime()) ? start : end;
+    const days = Math.floor((endDate.getTime() - Date.now()) / 86400000);
     await prisma.contract.create({
       data: {
-        number: r.number ?? r.Número ?? null,
+        number: r.number ?? r["Nº Contrato / PI"] ?? r.Número ?? null,
         clientId: client.id,
         vendorId: userId,
-        sellerName: r.sellerName ?? r["Vendedor"] ?? null,
+        sellerName: r.sellerName ?? r["Vendedor Responsável"] ?? r["Vendedor"] ?? null,
+        program: r.program ?? r["Programa / Faixa"] ?? null,
         startDate: Number.isNaN(start.getTime()) ? new Date() : start,
-        endDate: Number.isNaN(end.getTime()) ? new Date() : end,
-        mediaType: (["spot", "sponsorship", "testimonial", "other"].includes(String(r.mediaType)) ? String(r.mediaType) : "spot") as "spot" | "sponsorship" | "testimonial" | "other",
-        insertions: r.insertions ? Number(r.insertions) : null,
-        timeSlots: r.timeSlots ?? r.Horários ?? null,
-        value: r.value ? Number(r.value) : null,
-        notes: r.notes ?? null,
+        durationMonths: duration,
+        endDate,
+        mediaType: String(r.mediaType ?? r["Tipo de Mídia"] ?? "Spot 30s"),
+        insertions: r.insertions ? Number(r.insertions) : (r.insertionsPerMonth ? Number(r.insertionsPerMonth) : null),
+        insertionsPerDay: r.insertionsPerDay ? Number(r.insertionsPerDay) : (r["Qtd. Inserções / Dia"] ? Number(r["Qtd. Inserções / Dia"]) : null),
+        insertionsPerMonth: r.insertionsPerMonth ? Number(r.insertionsPerMonth) : (r["Total Inserções / Mês"] ? Number(r["Total Inserções / Mês"]) : null),
+        timeSlots: r.timeSlots ?? r["Horários de Veiculação"] ?? r.Horários ?? null,
+        value: r.value ? Number(r.value) : (r["Valor Mensal (R$)"] ? Number(r["Valor Mensal (R$)"]) : null),
+        totalValue: r.totalValue ? Number(r.totalValue) : (r["Valor Total / Valor Bruto"] ? Number(r["Valor Total / Valor Bruto"]) : null),
+        paymentInfo: r.paymentInfo ?? r["Pagamento / Vencimento"] ?? null,
+        status: days < 0 ? "expired" : days <= 30 ? "near_expiry" : "active",
+        notes: r.notes ?? r["Observações de Veiculação"] ?? null,
       },
     });
     seen.add(key);

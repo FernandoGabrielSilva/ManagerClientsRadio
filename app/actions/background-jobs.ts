@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar";
 import { createBackgroundJob, markJobCompleted, markJobFailed, markJobProgress, markJobRunning } from "@/lib/background-jobs";
-import { ensureClientContactEventsForUser } from "@/app/actions/events";
+import { ensureClientContactEventsForUserInBackground } from "@/app/actions/events";
 
 async function getUser() {
   const session = await auth();
@@ -213,7 +213,7 @@ async function runImportClients(jobId: string, userId: string, role: string | un
       seen.add(key); count++;
       await markJobProgress(jobId, i + 1, safeRows.length, `Importando ${i + 1}/${safeRows.length}`);
     }
-    await ensureClientContactEventsForUser(userId, role);
+    await ensureClientContactEventsForUserInBackground(userId, role);
     await markJobCompleted(jobId, { count, skipped, total: safeRows.length }, `Importados ${count}, pulados ${skipped}`);
     revalidatePath("/clients");
   } catch (e) { await markJobFailed(jobId, e instanceof Error ? e.message : String(e)); }

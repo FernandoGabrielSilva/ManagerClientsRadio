@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { WEEKDAYS, weekdayLabel } from "@/lib/date-utils";
+import { OPTION_LISTS } from "@/lib/spreadsheet";
 import { ChevronDown } from "lucide-react";
 import { z } from "zod";
 
@@ -38,6 +39,8 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
           contactName: client.contactName,
           contactPhone: client.contactPhone,
           contactEmail: client.contactEmail,
+          contactRole: client.contactRole,
+          offeredMediaType: client.offeredMediaType,
           videoWeekday: client.videoWeekday,
           lastContactAt: client.lastContactAt ? new Date(client.lastContactAt).toISOString().slice(0, 10) : null,
           contactFrequencyDays: client.contactFrequencyDays,
@@ -65,6 +68,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
           responsible: "",
           commercialStatus: "",
           contactType: "",
+          offeredMediaType: "",
           nextAction: "",
           nextActionDate: null,
           dateConference: null,
@@ -92,46 +96,68 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Cliente / anunciante *</Label>
+            <Label>Razão Social</Label>
+            <Input {...register("legalName")} />
+          </div>
+          <div className="space-y-2">
+            <Label>Nome Fantasia / Cliente *</Label>
             <Input {...register("name")} />
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label>Responsável</Label>
-            <Input {...register("responsible")} placeholder="Digite o nome" />
+            <Label>CNPJ / CPF</Label>
+            <Input {...register("cnpj")} />
           </div>
           <div className="space-y-2">
-            <Label>Contato / decisor</Label>
+            <Label>Endereço completo</Label>
+            <Input {...register("address")} />
+          </div>
+          <div className="space-y-2">
+            <Label>Telefone / WhatsApp</Label>
+            <Input {...register("phone")} />
+          </div>
+          <div className="space-y-2">
+            <Label>E-mail</Label>
+            <Input type="email" {...register("email")} />
+            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label>Contato responsável</Label>
             <Input {...register("contactName")} />
           </div>
           <div className="space-y-2">
-            <Label>WhatsApp</Label>
-            <Input {...register("phone")} />
+            <Label>Cargo / Setor</Label>
+            <Input {...register("contactRole")} />
+          </div>
+          <div className="space-y-2">
+            <Label>Vendedor / Representante</Label>
+            <Input {...register("responsible")} placeholder="Digite o nome" />
+          </div>
+          <div className="space-y-2">
+            <Label>Tipo de mídia ofertada</Label>
+            <Select value={watch("offeredMediaType") ?? ""} onValueChange={(v: string | null) => setValue("offeredMediaType", v)}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                {OPTION_LISTS.mediaTypes.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Situação comercial</Label>
             <Select value={watch("commercialStatus") ?? ""} onValueChange={(v: string | null) => setValue("commercialStatus", v)}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Não contatado">Não contatado</SelectItem>
-                <SelectItem value="Contato realizado">Contato realizado</SelectItem>
-                <SelectItem value="Visita a agendar">Visita a agendar</SelectItem>
-                <SelectItem value="Visita agendada">Visita agendada</SelectItem>
-                <SelectItem value="Visita realizada">Visita realizada</SelectItem>
-                <SelectItem value="Proposta a elaborar">Proposta a elaborar</SelectItem>
-                <SelectItem value="Proposta enviada">Proposta enviada</SelectItem>
-                <SelectItem value="Em negociação">Em negociação</SelectItem>
-                <SelectItem value="Aguardando retorno">Aguardando retorno</SelectItem>
-                <SelectItem value="Aguardando PI">Aguardando PI</SelectItem>
-                <SelectItem value="Retomar futuramente">Retomar futuramente</SelectItem>
-                <SelectItem value="Sem interesse">Sem interesse</SelectItem>
-                <SelectItem value="A confirmar">A confirmar</SelectItem>
+                {OPTION_LISTS.commercialStatuses.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
             <Label>Valor proposto (R$)</Label>
             <Input type="number" step="0.01" {...register("contractValue", { valueAsNumber: true })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Prazo de retorno (dias)</Label>
+            <Input type="number" min={1} max={365} {...register("contactFrequencyDays", { valueAsNumber: true })} />
           </div>
         </div>
       </section>
@@ -150,13 +176,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
             <Select value={watch("contactType") ?? ""} onValueChange={(v: string | null) => setValue("contactType", v)}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Visita">Visita</SelectItem>
-                <SelectItem value="Ligação">Ligação</SelectItem>
-                <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                <SelectItem value="E-mail">E-mail</SelectItem>
-                <SelectItem value="Reunião">Reunião</SelectItem>
-                <SelectItem value="Outro">Outro</SelectItem>
-                <SelectItem value="Não informado">Não informado</SelectItem>
+                {OPTION_LISTS.contactTypes.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -202,18 +222,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
             <Select value={watch("nextAction") ?? ""} onValueChange={(v: string | null) => setValue("nextAction", v)}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Ligar">Ligar</SelectItem>
-                <SelectItem value="Enviar WhatsApp">Enviar WhatsApp</SelectItem>
-                <SelectItem value="Agendar visita">Agendar visita</SelectItem>
-                <SelectItem value="Realizar visita">Realizar visita</SelectItem>
-                <SelectItem value="Realizar visita / retorno">Realizar visita / retorno</SelectItem>
-                <SelectItem value="Enviar proposta">Enviar proposta</SelectItem>
-                <SelectItem value="Cobrar retorno">Cobrar retorno</SelectItem>
-                <SelectItem value="Negociar condições">Negociar condições</SelectItem>
-                <SelectItem value="Solicitar PI">Solicitar PI</SelectItem>
-                <SelectItem value="Confirmar recebimento da PI">Confirmar recebimento da PI</SelectItem>
-                <SelectItem value="Retomar futuramente">Retomar futuramente</SelectItem>
-                <SelectItem value="A definir">A definir</SelectItem>
+                {OPTION_LISTS.nextActions.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

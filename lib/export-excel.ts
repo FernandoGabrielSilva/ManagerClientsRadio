@@ -1,7 +1,7 @@
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 
 type CellStyle = {
-  font?: { bold?: boolean; color?: { rgb: string }; sz?: number; name?: string };
+  font?: { bold?: boolean; italic?: boolean; underline?: boolean; color?: { rgb: string }; sz?: number; name?: string };
   fill?: { patternType?: "solid"; fgColor?: { rgb: string }; bgColor?: { rgb: string } };
   alignment?: { horizontal?: "left" | "center" | "right"; vertical?: "top" | "center" | "bottom"; wrapText?: boolean };
   border?: {
@@ -14,11 +14,11 @@ type CellStyle = {
 };
 
 const COLORS = {
-  navy: "18334E",
-  subtitleBg: "EAF1F7",
-  subtitleText: "526477",
-  grid: "D7E3EE",
-  bodyText: "1F2937",
+  navy: "1F4E78",
+  subtitleBg: "D9E1F2",
+  subtitleText: "1F4E78",
+  grid: "D9D9D9",
+  bodyText: "1F3A52",
   white: "FFFFFF",
 };
 
@@ -101,16 +101,36 @@ function detectColumnFormat(header: string, values: unknown[]) {
   return { kind: "text" as const };
 }
 
-export function exportStyledXlsx(opts: {
-  filename: string;
+export type StyledSheetSpec = {
   sheetName: string;
   headers: string[];
   rows: (string | number | null | undefined)[][];
   columnWidths?: number[];
   title?: string;
   subtitle?: string;
-}) {
-  const { filename, sheetName, headers, rows, columnWidths } = opts;
+};
+
+
+function statusFill(header: string, value: unknown): { fill: CellStyle["fill"]; fontColor?: string } | null {
+  const h = header.toLowerCase();
+  const text = String(value ?? "").trim().toLowerCase();
+  if (!text) return null;
+  const isStatusCol = h.includes("status") || h.includes("alerta") || h.includes("prazo");
+  if (!isStatusCol) return null;
+  if (text.includes("vencido") || text.includes("cancel") || text.includes("atrasado")) {
+    return { fill: { patternType: "solid", fgColor: { rgb: "FFC7CE" }, bgColor: { rgb: "FFC7CE" } }, fontColor: "9C0006" };
+  }
+  if (text.includes("perto") || text.includes("alerta") || text.includes("em ") || text.includes("hoje")) {
+    return { fill: { patternType: "solid", fgColor: { rgb: "FFEB9C" }, bgColor: { rgb: "FFEB9C" } }, fontColor: "9C6500" };
+  }
+  if (text.includes("ativo") || text.includes("vigente") || text.includes("fechado") || text.includes("contrato")) {
+    return { fill: { patternType: "solid", fgColor: { rgb: "C6EFCE" }, bgColor: { rgb: "C6EFCE" } }, fontColor: "006100" };
+  }
+  return null;
+}
+
+export function buildStyledSheet(opts: StyledSheetSpec): XLSX.WorkSheet {
+  const { sheetName, headers, rows, columnWidths } = opts;
   const title = opts.title ?? sheetName;
   const subtitle = opts.subtitle ?? `${rows.length} registro${rows.length === 1 ? "" : "s"} • Gerado em ${new Date().toLocaleDateString("pt-BR")}`;
 
@@ -124,24 +144,24 @@ export function exportStyledXlsx(opts: {
 
   for (let c = 0; c < colCount; c++) {
     setCell(ws, 0, c, c === 0 ? title : "", {
-      font: { bold: true, color: { rgb: COLORS.white }, sz: 16, name: "Carlito" },
+      font: { bold: true, color: { rgb: COLORS.white }, sz: 14, name: "Calibri" },
       fill: { patternType: "solid", fgColor: { rgb: COLORS.navy }, bgColor: { rgb: COLORS.navy } },
       alignment: { horizontal: "left", vertical: "center", wrapText: true },
     });
     setCell(ws, 1, c, c === 0 ? subtitle : "", {
-      font: { bold: false, color: { rgb: COLORS.subtitleText }, sz: 10, name: "Carlito" },
+      font: { italic: true, color: { rgb: "404040" }, sz: 10, name: "Calibri" },
       fill: { patternType: "solid", fgColor: { rgb: COLORS.subtitleBg }, bgColor: { rgb: COLORS.subtitleBg } },
       alignment: { horizontal: "left", vertical: "center", wrapText: true },
     });
     setCell(ws, 2, c, "", {
-      font: { sz: 11, name: "Carlito", color: { rgb: COLORS.bodyText } },
+      font: { sz: 10, name: "Calibri", color: { rgb: COLORS.bodyText } },
       fill: { patternType: "solid", fgColor: { rgb: COLORS.white }, bgColor: { rgb: COLORS.white } },
       alignment: { vertical: "center" },
     });
     setCell(ws, headerRow, c, headers[c], {
-      font: { bold: true, color: { rgb: COLORS.white }, sz: 11, name: "Carlito" },
-      fill: { patternType: "solid", fgColor: { rgb: COLORS.navy }, bgColor: { rgb: COLORS.navy } },
-      alignment: { horizontal: "left", vertical: "center", wrapText: true },
+      font: { bold: true, color: { rgb: COLORS.white }, sz: 11, name: "Calibri" },
+      fill: { patternType: "solid", fgColor: { rgb: "2F75B5" }, bgColor: { rgb: "2F75B5" } },
+      alignment: { horizontal: "center", vertical: "center", wrapText: true },
       border: thinBorder,
     });
   }
@@ -153,10 +173,12 @@ export function exportStyledXlsx(opts: {
       const raw = row[c];
       const fmt = formats[c];
       let value: unknown = raw == null ? "" : raw;
+      const zebra = i % 2 === 1 ? "F2F7FB" : "FFFFFF";
+      const align = fmt.kind === "text" ? "left" : "center";
       const style: CellStyle = {
-        font: { sz: 11, name: "Carlito", color: { rgb: COLORS.bodyText } },
-        fill: { patternType: "solid", fgColor: { rgb: COLORS.white }, bgColor: { rgb: COLORS.white } },
-        alignment: { horizontal: "left", vertical: "center", wrapText: true },
+        font: { sz: 10, name: "Calibri", color: { rgb: COLORS.bodyText } },
+        fill: { patternType: "solid", fgColor: { rgb: zebra }, bgColor: { rgb: zebra } },
+        alignment: { horizontal: align as "left" | "center" | "right", vertical: "center", wrapText: true },
         border: thinBorder,
       };
       if (fmt.kind === "currency") {
@@ -172,7 +194,25 @@ export function exportStyledXlsx(opts: {
           style.numFmt = "dd/mm/yyyy";
         }
       }
+      const headerLower2 = String(headers[c] ?? "").toLowerCase();
+      if (headerLower2.includes("telefone") || headerLower2.includes("whatsapp") || headerLower2.includes("cnpj")) {
+        value = value == null ? "" : String(value);
+        style.numFmt = "@";
+      }
+      const sf = statusFill(headers[c], raw);
+      if (sf) {
+        style.fill = sf.fill;
+        style.font = { ...(style.font ?? {}), color: { rgb: sf.fontColor ?? COLORS.bodyText }, bold: true };
+      }
       setCell(ws, r, c, value, style);
+      const addr2 = XLSX.utils.encode_cell({ r, c });
+      const cellObj = ws[addr2] as any;
+      const headerLower = String(headers[c] ?? "").toLowerCase();
+      if (cellObj && value && (headerLower.includes("e-mail") || headerLower.includes("email") || headerLower.includes("site"))) {
+        const url = headerLower.includes("site") ? String(value) : `mailto:${value}`;
+        cellObj.l = { Target: url, Tooltip: String(value) };
+        if (cellObj.s) cellObj.s.font = { ...(cellObj.s.font ?? {}), color: { rgb: "0563C1" }, underline: true };
+      }
     }
   });
 
@@ -187,17 +227,19 @@ export function exportStyledXlsx(opts: {
     : headers.map((h) => Math.min(Math.max(String(h).length + 4, 14), 42))
   ).map((w) => ({ wch: w }));
   ws["!rows"] = [
-    { hpt: 34 },
-    { hpt: 24 },
+    { hpt: 33.75 },
+    { hpt: 21.75 },
     { hpt: 8 },
-    { hpt: 30 },
-    ...Array.from({ length: Math.max(displayRows.length, 1) }, () => ({ hpt: 24 })),
+    { hpt: 27.75 },
   ];
   (ws as XLSX.WorkSheet & { "!freeze"?: unknown })["!freeze"] = { xSplit: 0, ySplit: 4, topLeftCell: "A5", activePane: "bottomLeft", state: "frozen" };
   ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: headerRow, c: 0 }, e: { r: headerRow, c: colCount - 1 } }) };
+  (ws as any)["!sheetView"] = { showGridLines: false };
+  (ws as any).sheetView = { showGridLines: false };
+  return ws;
+}
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+function downloadWorkbook(wb: XLSX.WorkBook, filename: string) {
   const buf = XLSX.write(wb, { bookType: "xlsx", type: "array", cellStyles: true } as XLSX.WritingOptions & { cellStyles?: boolean });
   const blob = new Blob([buf], { type: "application/octet-stream" });
   const url = URL.createObjectURL(blob);
@@ -206,4 +248,20 @@ export function exportStyledXlsx(opts: {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export function exportStyledXlsx(opts: StyledSheetSpec & { filename: string }) {
+  const ws = buildStyledSheet(opts);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, opts.sheetName);
+  downloadWorkbook(wb, opts.filename);
+}
+
+export function exportStyledWorkbook(opts: { filename: string; sheets: StyledSheetSpec[] }) {
+  const wb = XLSX.utils.book_new();
+  for (const sheet of opts.sheets) {
+    const ws = buildStyledSheet(sheet);
+    XLSX.utils.book_append_sheet(wb, ws, sheet.sheetName.slice(0, 31));
+  }
+  downloadWorkbook(wb, opts.filename);
 }

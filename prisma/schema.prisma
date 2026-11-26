@@ -18,13 +18,6 @@ enum ContractStatus {
   negotiation
 }
 
-enum MediaType {
-  spot
-  sponsorship
-  testimonial
-  other
-}
-
 enum ContractState {
   active
   near_expiry
@@ -137,6 +130,8 @@ model Client {
   contactName          String?
   contactPhone         String?
   contactEmail         String?
+  contactRole          String?
+  offeredMediaType     String?
   videoWeekday         Int             @default(1)
   responsible          String?
   commercialStatus     String?
@@ -176,12 +171,18 @@ model Contract {
   clientId     String
   vendorId     String?
   sellerName   String?
+  program      String?
   startDate    DateTime
+  durationMonths Int?
   endDate      DateTime
-  mediaType    MediaType     @default(spot)
+  mediaType    String        @default("Spot 30s")
   insertions   Int?
+  insertionsPerDay Int?
+  insertionsPerMonth Int?
   timeSlots    String?
   value        Float?
+  totalValue   Float?
+  paymentInfo  String?
   status       ContractState @default(active)
   pdfData      Bytes?
   pdfName      String?

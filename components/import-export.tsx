@@ -1,10 +1,12 @@
 "use client";
 
-import { useRef } from "react";
-import * as XLSX from "xlsx";
+import { useRef, useState } from "react";
+import * as XLSX from "xlsx-js-style";
 import { Button } from "@/components/ui/button";
-import { Upload, Download } from "lucide-react";
-import { exportStyledXlsx } from "@/lib/export-excel";
+import { Upload, Download, FileSpreadsheet } from "lucide-react";
+import { exportStyledXlsx, exportStyledWorkbook } from "@/lib/export-excel";
+import { buildWorkbookSheets } from "@/lib/export-workbook";
+import { getWorkbookExportDataAction } from "@/app/actions/spreadsheet";
 
 type StyledExportProps = {
   data?: Record<string, unknown>[];
@@ -113,6 +115,72 @@ export function ExportPdfButton({ data, getData, filename, columns, loading }: {
   return (
     <Button variant="outline" onClick={handle} disabled={loading} className="w-full sm:w-auto">
       <Download className="h-4 w-4 mr-2" /> {loading ? "Exportando..." : "Exportar PDF"}
+    </Button>
+  );
+}
+
+export function WorkbookImportButton({
+  onImport,
+  loading,
+  label = "Importar planilha completa",
+}: {
+  onImport: (sheets: Record<string, unknown[][]>) => Promise<void>;
+  loading?: boolean;
+  label?: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+
+  async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array", cellDates: true });
+    const sheets: Record<string, unknown[][]> = {};
+    for (const name of wb.SheetNames) {
+      const ws = wb.Sheets[name];
+      if (!ws) continue;
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true }) as unknown[][];
+      sheets[name] = JSON.parse(JSON.stringify(rows)) as unknown[][];
+    }
+    await onImport(sheets);
+    if (ref.current) ref.current.value = "";
+  }
+
+  return (
+    <>
+      <input ref={ref} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleChange} />
+      <Button variant="outline" onClick={() => ref.current?.click()} disabled={loading} className="w-full sm:w-auto">
+        <FileSpreadsheet className="h-4 w-4 mr-2" /> {loading ? "Importando..." : label}
+      </Button>
+    </>
+  );
+}
+
+export function ExportWorkbookButton({
+  filename = "Bacabal FM 90.1 - Gestão Comercial.xlsx",
+  label = "Exportar planilha completa",
+  className,
+}: {
+  filename?: string;
+  label?: string;
+  className?: string;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function handle() {
+    setBusy(true);
+    try {
+      const data = await getWorkbookExportDataAction();
+      const sheets = buildWorkbookSheets(data);
+      exportStyledWorkbook({ filename, sheets });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Button variant="outline" onClick={handle} disabled={busy} className={className ?? "w-full sm:w-auto"}>
+      <Download className="h-4 w-4 mr-2" /> {busy ? "Gerando..." : label}
     </Button>
   );
 }

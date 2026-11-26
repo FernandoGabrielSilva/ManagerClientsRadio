@@ -36,6 +36,8 @@ export async function createClientAction(data: z.infer<typeof clientSchema>) {
       contactName: d.contactName ?? null,
       contactPhone: d.contactPhone ?? null,
       contactEmail: d.contactEmail || null,
+      contactRole: d.contactRole ?? null,
+      offeredMediaType: d.offeredMediaType ?? null,
       videoWeekday: d.videoWeekday,
       lastContactAt: d.lastContactAt ? new Date(d.lastContactAt) : null,
       contactFrequencyDays: d.contactFrequencyDays,
@@ -79,6 +81,8 @@ export async function updateClientAction(id: string, data: z.infer<typeof client
       contactName: d.contactName ?? null,
       contactPhone: d.contactPhone ?? null,
       contactEmail: d.contactEmail || null,
+      contactRole: d.contactRole ?? null,
+      offeredMediaType: d.offeredMediaType ?? null,
       videoWeekday: d.videoWeekday,
       lastContactAt: d.lastContactAt ? new Date(d.lastContactAt) : null,
       contactFrequencyDays: d.contactFrequencyDays,
@@ -233,18 +237,27 @@ export async function getAllClientsForExportAction() {
   const clients = await prisma.client.findMany({ where, orderBy: { name: "asc" }, include: { vendor: true } });
   return clients.map((c) => ({
     name: c.name,
+    legalName: c.legalName,
+    tradeName: c.tradeName,
+    cnpj: c.cnpj,
+    address: c.address,
     responsible: c.responsible,
     contactName: c.contactName,
+    contactRole: c.contactRole,
     phone: c.phone,
+    email: c.email,
     commercialStatus: c.commercialStatus ?? c.contractStatus,
+    offeredMediaType: c.offeredMediaType,
     contractValue: c.contractValue,
     lastContactAt: c.lastContactAt?.toISOString() ?? null,
     contactType: c.contactType,
     nextAction: c.nextAction,
     nextActionDate: c.nextActionDate?.toISOString() ?? null,
+    contactFrequencyDays: c.contactFrequencyDays,
     notes: c.notes,
     dateConference: c.dateConference?.toISOString() ?? null,
     videoWeekday: c.videoWeekday,
+    contractStatus: c.contractStatus,
   }));
 }
 
@@ -309,27 +322,33 @@ export async function importClientsAction(rows: any[]) {
     if (!r || typeof r !== "object") { skipped++; continue; }
     const key = clientImportKey(r);
     if (seen.has(key)) { skipped++; continue; }
-    const name = String(r.name ?? r["Cliente / anunciante"] ?? r.Nome ?? "Sem nome").slice(0, 200);
+    const name = String(r.name ?? r["Nome Fantasia / Cliente"] ?? r["Cliente / anunciante"] ?? r.Nome ?? "Sem nome").slice(0, 200);
     await prisma.client.create({
       data: {
         userId,
         vendorId: userId,
         name,
-        phone: r.phone ?? r.WhatsApp ?? r.Telefone ?? null,
+        legalName: r.legalName ?? r["Razão Social"] ?? null,
+        tradeName: r.tradeName ?? r["Nome Fantasia / Cliente"] ?? null,
+        cnpj: r.cnpj ?? r["CNPJ / CPF"] ?? null,
+        address: r.address ?? r["Endereço Completo"] ?? null,
+        phone: r.phone ?? r["Telefone / WhatsApp"] ?? r.WhatsApp ?? r.Telefone ?? null,
         email: r.email ?? r.Email ?? null,
-        contactName: r.contactName ?? r["Contato / decisor"] ?? r.Contato ?? null,
+        contactName: r.contactName ?? r["Contato Responsável"] ?? r["Contato / decisor"] ?? r.Contato ?? null,
+        contactRole: r.contactRole ?? r["Cargo / Setor"] ?? null,
+        offeredMediaType: r.offeredMediaType ?? r["Tipo de Mídia Ofertada"] ?? null,
         videoWeekday: Math.max(0, Math.min(127, Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1) || 1)),
-        contactFrequencyDays: Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? 14) || 14)),
-        contractStatus: (["active", "paused", "ended", "negotiation"].includes(String(r.contractStatus)) ? r.contractStatus : "active") as any,
-        notes: r.notes ?? r["Histórico / observações"] ?? r.Observações ?? null,
-        responsible: r.responsible ?? r["Responsável"] ?? null,
-        commercialStatus: r.commercialStatus ?? r["Situação comercial"] ?? null,
-        contactType: r.contactType ?? r["Tipo de contato"] ?? null,
-        nextAction: r.nextAction ?? r["Próxima ação"] ?? null,
-        nextActionDate: toDateValue(r.nextActionDate ?? r["Data próxima ação"]),
+        contactFrequencyDays: Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? r["Prazo Retorno (Dias)"] ?? 14) || 14)),
+        contractStatus: (["active","paused","ended","negotiation"].includes(String(r.contractStatus)) ? r.contractStatus : "active") as any,
+        notes: r.notes ?? r["Histórico de Contatos / Detalhes do PI"] ?? r["Histórico / observações"] ?? r.Observações ?? null,
+        responsible: r.responsible ?? r["Vendedor / Representante"] ?? r["Responsável"] ?? null,
+        commercialStatus: r.commercialStatus ?? r["Situação Comercial"] ?? r["Situação comercial"] ?? null,
+        contactType: r.contactType ?? r["Tipo de Contato"] ?? r["Tipo de contato"] ?? null,
+        nextAction: r.nextAction ?? r["Próxima Ação"] ?? r["Próxima ação"] ?? null,
+        nextActionDate: toDateValue(r.nextActionDate ?? r["Data Próximo Retorno (Auto)"] ?? r["Data próxima ação"]),
         dateConference: toDateValue(r.dateConference ?? r["Conferência de datas"]),
-        contractValue: toNumberValue(r.contractValue ?? r["Valor proposto (R$)"]),
-        lastContactAt: toDateValue(r.lastContactAt ?? r["Último contato"]),
+        contractValue: toNumberValue(r.contractValue ?? r["Valor Proposto (R$)"] ?? r["Valor proposto (R$)"]),
+        lastContactAt: toDateValue(r.lastContactAt ?? r["Data Último Contato"] ?? r["Último contato"]),
       },
     });
     seen.add(key);

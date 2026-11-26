@@ -33,7 +33,7 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
 
   function contractStatus(c: any) {
     const days = differenceInDays(new Date(c.endDate), new Date());
-    return days < 0 ? "Vencido" : days <= 15 ? "Perto de Vencer" : "Ativo";
+    return days < 0 ? "Vencido" : days <= 30 ? "Perto de Vencer" : "Ativo";
   }
 
   const filtered = contracts.filter((c) => {
@@ -181,7 +181,9 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
               <TableHead>Número</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Vendedor</TableHead>
+              <TableHead>Programa</TableHead>
               <TableHead>Tipo</TableHead>
+              <TableHead className="text-right">Valor</TableHead>
               <TableHead>Início</TableHead>
               <TableHead className="text-right">Término</TableHead>
               <TableHead className="text-right">Dias</TableHead>
@@ -191,8 +193,8 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
           <TableBody>
             {paged.map((c) => {
               const days = differenceInDays(new Date(c.endDate), new Date());
-              const status = days < 0 ? "Vencido" : days <= 15 ? "Perto de Vencer" : "Ativo";
-              const variant = days < 0 ? "destructive" : days <= 15 ? "secondary" : "outline";
+              const status = days < 0 ? "Vencido" : days <= 30 ? "Perto de Vencer" : "Ativo";
+              const variant = days < 0 ? "destructive" : days <= 30 ? "secondary" : "outline";
               return (
                 <TableRow
                   key={c.id}
@@ -211,7 +213,9 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
                   <TableCell className="font-medium">{c.number ?? "—"}</TableCell>
                   <TableCell>{c.client?.name ?? "—"}</TableCell>
                   <TableCell>{c.sellerName ?? c.vendor?.name ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{c.program ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.mediaType}</TableCell>
+                  <TableCell className="text-right tabular-nums">{c.value != null ? `R$ ${Number(c.value).toLocaleString("pt-BR")}` : "—"}</TableCell>
                   <TableCell className="text-muted-foreground tabular-nums">{formatDate(c.startDate)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatDate(c.endDate)}</TableCell>
                   <TableCell className="text-right tabular-nums">{days}</TableCell>

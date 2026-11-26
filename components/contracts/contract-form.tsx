@@ -19,7 +19,13 @@ export function ContractForm({ clients, onSuccess, onCancel }: { clients: { id: 
   const router = useRouter();
   const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<Values>({
     resolver: zodResolver(contractSchema),
-    defaultValues: { mediaType: "spot", startDate: new Date().toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10), sellerName: "" },
+    defaultValues: {
+      mediaType: "Spot 30s",
+      startDate: new Date().toISOString().slice(0, 10),
+      durationMonths: 3,
+      endDate: "",
+      sellerName: "",
+    },
   });
 
   async function onSubmit(values: Values) {
@@ -34,11 +40,11 @@ export function ContractForm({ clients, onSuccess, onCancel }: { clients: { id: 
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label>Número do contrato</Label>
-          <Input {...register("number")} />
+          <Label>Nº Contrato / PI</Label>
+          <Input {...register("number")} placeholder="Ex: PI 18/2026" />
         </div>
         <div className="space-y-2">
-          <Label>Cliente *</Label>
+          <Label>Cliente / Anunciante *</Label>
           <Select value={watch("clientId")} onValueChange={(v: string | null) => setValue("clientId", v ?? "")}>
             <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
             <SelectContent>
@@ -48,44 +54,59 @@ export function ContractForm({ clients, onSuccess, onCancel }: { clients: { id: 
           {errors.clientId && <p className="text-sm text-destructive">{errors.clientId.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>Vendedor</Label>
+          <Label>Vendedor Responsável</Label>
           <Input {...register("sellerName")} placeholder="Nome do vendedor" />
         </div>
         <div className="space-y-2">
-          <Label>Tipo de mídia</Label>
-          <Select value={watch("mediaType")} onValueChange={(v: string | null) => setValue("mediaType", (v ?? "spot") as any)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="spot">Spot</SelectItem>
-              <SelectItem value="sponsorship">Patrocínio</SelectItem>
-              <SelectItem value="testimonial">Testemunhal</SelectItem>
-              <SelectItem value="other">Outro</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label>Programa / Faixa</Label>
+          <Input {...register("program")} placeholder="Ex: Institucional / Ofertas" />
         </div>
         <div className="space-y-2">
-          <Label>Início</Label>
+          <Label>Data de Início *</Label>
           <Input type="date" {...register("startDate")} />
+          {errors.startDate && <p className="text-sm text-destructive">{errors.startDate.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>Término</Label>
+          <Label>Duração (meses)</Label>
+          <Input type="number" min={0} {...register("durationMonths", { valueAsNumber: true })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Data de Término</Label>
           <Input type="date" {...register("endDate")} />
+          <p className="text-xs text-muted-foreground">Deixe em branco para calcular pela duração.</p>
         </div>
         <div className="space-y-2">
-          <Label>Quantidade de inserções</Label>
-          <Input type="number" {...register("insertions", { valueAsNumber: true })} />
+          <Label>Tipo de Mídia *</Label>
+          <Input {...register("mediaType")} placeholder="Ex: Spot 30s + Testemunhal 60s" />
+          {errors.mediaType && <p className="text-sm text-destructive">{errors.mediaType.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>Valor</Label>
+          <Label>Qtd. Inserções / Dia</Label>
+          <Input type="number" min={0} {...register("insertionsPerDay", { valueAsNumber: true })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Total Inserções / Mês</Label>
+          <Input type="number" min={0} {...register("insertionsPerMonth", { valueAsNumber: true })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Horários de Veiculação</Label>
+          <Input {...register("timeSlots")} placeholder="Ex: 08:00, 12:00, 18:00" />
+        </div>
+        <div className="space-y-2">
+          <Label>Valor Mensal (R$)</Label>
           <Input type="number" step="0.01" {...register("value", { valueAsNumber: true })} />
         </div>
+        <div className="space-y-2">
+          <Label>Valor Total / Valor Bruto (R$)</Label>
+          <Input type="number" step="0.01" {...register("totalValue", { valueAsNumber: true })} />
+        </div>
         <div className="space-y-2 md:col-span-2">
-          <Label>Horários</Label>
-          <Input {...register("timeSlots")} placeholder="Ex: 08:00, 12:00, 18:00" />
+          <Label>Pagamento / Vencimento</Label>
+          <Input {...register("paymentInfo")} placeholder="Ex: Dia 19 de cada mês — Pix / Boleto" />
         </div>
       </div>
       <div className="space-y-2">
-        <Label>Observações</Label>
+        <Label>Observações de Veiculação</Label>
         <Textarea rows={3} {...register("notes")} />
       </div>
       <div className="flex flex-col-reverse sm:flex-row gap-2">

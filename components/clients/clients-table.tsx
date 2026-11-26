@@ -168,7 +168,7 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
       </div>
 
       <div className="max-h-[420px] overflow-x-auto border rounded-md">
-        <Table className="min-w-[760px] w-full">
+        <Table className="min-w-[900px] w-full">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-10">
@@ -177,6 +177,7 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
               <TableHead>Cliente / anunciante</TableHead>
               <TableHead>Responsável</TableHead>
               <TableHead>Situação comercial</TableHead>
+              <TableHead>Próxima ação</TableHead>
               <TableHead>Vídeo</TableHead>
               <TableHead>Último contato</TableHead>
               <TableHead className="text-right">Próximo contato</TableHead>
@@ -201,6 +202,12 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
                 <TableCell className="font-medium">{c.name}</TableCell>
                 <TableCell className="text-muted-foreground">{c.responsible ?? "—"}</TableCell>
                 <TableCell><Badge variant="outline" className="font-normal">{c.commercialStatus ?? c.contractStatus}</Badge></TableCell>
+                <TableCell className="text-muted-foreground">
+                  <div className="flex flex-col">
+                    <span>{c.nextAction ?? "—"}</span>
+                    {c.nextActionDate && <span className="text-xs tabular-nums">{formatDate(c.nextActionDate)}</span>}
+                  </div>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{weekdayLabel(c.videoWeekday)}</TableCell>
                 <TableCell className="text-muted-foreground tabular-nums">{formatDate(c.lastContactAt)}</TableCell>
                 <TableCell className="text-right tabular-nums">

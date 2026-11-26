@@ -20,9 +20,8 @@ type ClientLite = { id: string; name: string; lastContactAt: string | Date | nul
 export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; clients?: ClientLite[] }) {
   const [date, setDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<any[]>([]);
-  const [open, setOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [vendorFilter, setVendorFilter] = useState<string>("all");
-  const [form, setForm] = useState({ title: "", type: "custom", start: "", end: "" });
 
   async function load(d: Date) {
     const evs = await listEventsAction(startOfMonth(d).toISOString(), endOfMonth(d).toISOString());
@@ -41,21 +40,6 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
     return d.getUTCFullYear() === date.getFullYear() && d.getUTCMonth() === date.getMonth() && d.getUTCDate() === date.getDate();
   });
 
-  async function handleCreate() {
-    await createEventAction({
-      title: form.title,
-      type: form.type as any,
-      start: form.start,
-      end: form.end || null,
-      allDay: true,
-      description: null,
-      clientId: null,
-    } as any);
-    setOpen(false);
-    setForm({ title: "", type: "custom", start: "", end: "" });
-    load(date);
-  }
-
   const typeColor: Record<string, string> = {
     video: "bg-sky-100 text-sky-700",
     contact: "bg-amber-100 text-amber-700",
@@ -65,23 +49,21 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><CalendarIcon className="h-5 w-5" /></div>
-          <div><h1 className="text-2xl font-bold tracking-tight">Calendário</h1><p className="text-sm text-muted-foreground">Agenda de eventos e compromissos</p></div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setOpen(true)} className="w-full sm:w-auto">Novo evento</Button>
-        </div>
-      </div>
-
-       <div className="grid gap-4 xl:grid-cols-[460px_1fr]">
-        <Card>
+       <div className="flex justify-center">
+        <Card className="w-full max-w-md">
           <CardContent className="p-3 flex justify-center overflow-x-auto">
             <Calendar
               mode="single"
               selected={date}
-              onSelect={(d) => d && setDate(d)}
+              onSelect={(d) => {
+                if (!d) return;
+                setDate(d);
+                const evs = events.filter((e) => {
+                  const dd = new Date(e.start);
+                  return dd.getUTCFullYear() === d.getFullYear() && dd.getUTCMonth() === d.getMonth() && dd.getUTCDate() === d.getDate();
+                });
+                if (evs.length > 0) setDetailsOpen(true);
+              }}
               modifiers={{ hasEvent: eventDays }}
               modifiersClassNames={{ hasEvent: "bg-primary/20 font-bold" }}
               className="[--cell-size:--spacing(10)] text-base"
@@ -89,13 +71,14 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{formatDate(date)}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
+      </div>
+
+
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{formatDate(date)}</DialogTitle></DialogHeader>
+          <div className="space-y-2">
             {dayEvents.length === 0 && <p className="text-sm text-muted-foreground">Nenhum evento neste dia.</p>}
-            <div className="max-h-[360px] overflow-auto space-y-2">
             {dayEvents.map((e) => (
               <div key={e.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between border rounded-md px-3 py-2 gap-2">
                 <div className="min-w-0">
@@ -105,47 +88,15 @@ export function CalendarView({ vendors, clients = [] }: { vendors: Vendor[]; cli
                 </div>
                 <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                   <Badge variant="outline" className={typeColor[e.type] ?? ""}>{e.type}</Badge>
-                  <Button size="sm" variant="ghost" onClick={async () => { await deleteEventAction(e.id); load(date); }}>Excluir</Button>
+
                 </div>
               </div>
             ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Novo evento</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label>Título</Label>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <Select value={form.type} onValueChange={(v: string | null) => setForm({ ...form, type: v ?? "custom" })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="video">Vídeo</SelectItem>
-                  <SelectItem value="contact">Contato</SelectItem>
-                  <SelectItem value="contract_expiry">Vencimento</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Data início</Label>
-              <Input type="date" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Data fim</Label>
-              <Input type="date" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
-            </div>
-            <Button onClick={handleCreate}>Criar</Button>
           </div>
         </DialogContent>
       </Dialog>
+
+
     </div>
   );
 }
