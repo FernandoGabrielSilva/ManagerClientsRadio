@@ -1,11 +1,25 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { isContactOverdue, isContractExpiringSoon, isVideoDueToday, daysSinceContact, formatDate } from "@/lib/date-utils";
+import {
+  isContactOverdue,
+  isContractExpiringSoon,
+  isVideoDueToday,
+  daysSinceContact,
+  formatDate,
+} from "@/lib/date-utils";
 import { diffDays, toDate } from "@/lib/spreadsheet";
 import Link from "next/link";
-import { Video, Phone, FileText, Users, AlertTriangle, CalendarDays } from "lucide-react";
+import {
+  Video,
+  Phone,
+  FileText,
+  Users,
+  AlertTriangle,
+  CalendarDays,
+} from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { CalendarView } from "@/components/calendar/calendar-view";
+import { DashboardMiddle } from "@/components/dashboard/dashboard-middle";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Client, Contract, Notification } from "@prisma/client";
 
@@ -15,47 +29,122 @@ export default async function DashboardPage() {
   const session = await auth();
   const userId = session!.user!.id as string;
   const role = (session!.user as any).role;
-  const where = role === "admin" ? undefined : { OR: [{ userId }, { vendorId: userId }] };
-  const clients: Client[] = await prisma.client.findMany({ where, orderBy: { name: "asc" } });
+  const where =
+    role === "admin" ? undefined : { OR: [{ userId }, { vendorId: userId }] };
+  const clients: Client[] = await prisma.client.findMany({
+    where,
+    orderBy: { name: "asc" },
+  });
   const contracts: ContractWithClient[] = await prisma.contract.findMany({
-    where: role === "admin" ? { deletedAt: null, archivedAt: null } : { vendorId: userId, deletedAt: null, archivedAt: null },
+    where:
+      role === "admin"
+        ? { deletedAt: null, archivedAt: null }
+        : { vendorId: userId, deletedAt: null, archivedAt: null },
     include: { client: true },
   });
-  const notifications: Notification[] = await prisma.notification.findMany({ where: { userId, read: false }, orderBy: { createdAt: "desc" }, take: 6 });
-  const vendors = await prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
-  const calendarClients = clients.map((c: Client) => ({ id: c.id, name: c.name, lastContactAt: c.lastContactAt, contactFrequencyDays: c.contactFrequencyDays, vendorId: c.vendorId }));
+  const notifications: Notification[] = await prisma.notification.findMany({
+    where: { userId, read: false },
+    orderBy: { createdAt: "desc" },
+    take: 6,
+  });
+  const vendors = await prisma.user.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  const calendarClients = clients.map((c: Client) => ({
+    id: c.id,
+    name: c.name,
+    lastContactAt: c.lastContactAt,
+    contactFrequencyDays: c.contactFrequencyDays,
+    vendorId: c.vendorId,
+  }));
+  const reminders = await prisma.reminder.findMany({
+    where: role === "admin" ? {} : { userId },
+    orderBy: { dueDate: "asc" },
+    take: 8,
+  });
 
-  const videoToday = clients.filter((c: Client) => isVideoDueToday(c.videoWeekday));
-  const contactOverdue = clients.filter((c: Client) => isContactOverdue(c.lastContactAt, c.contactFrequencyDays));
-  const visitsToday = clients.filter((c: Client) => diffDays(toDate(c.nextActionDate)) === 0);
-  const expiring = clients.filter((c: Client) => isContractExpiringSoon(c.contractEnd, 30));
-  const activeCount = clients.filter((c: Client) => c.contractStatus === "active").length;
+  const videoToday = clients.filter((c: Client) =>
+    isVideoDueToday(c.videoWeekday),
+  );
+  const contactOverdue = clients.filter((c: Client) =>
+    isContactOverdue(c.lastContactAt, c.contactFrequencyDays),
+  );
+  const visitsToday = clients.filter(
+    (c: Client) => diffDays(toDate(c.nextActionDate)) === 0,
+  );
+  const expiring = clients.filter((c: Client) =>
+    isContractExpiringSoon(c.contractEnd, 30),
+  );
+  const activeCount = clients.filter(
+    (c: Client) => c.contractStatus === "active",
+  ).length;
   const adChange = clients.filter((c: Client) => c.needsAdChange);
 
-  const clientStatusCounts = clients.reduce<Record<string, number>>((acc: Record<string, number>, c: Client) => {
-    const key = c.commercialStatus ?? c.contractStatus ?? "Sem status";
-    acc[key] = (acc[key] ?? 0) + 1;
-    return acc;
-  }, {});
-  const contractStatusCounts = contracts.reduce<Record<string, number>>((acc: Record<string, number>, c: ContractWithClient) => {
-    const days = Math.floor((new Date(c.endDate).getTime() - Date.now()) / 86400000);
-    const key = days < 0 ? "Vencido" : days <= 30 ? "Perto de Vencer" : "Ativo";
-    acc[key] = (acc[key] ?? 0) + 1;
-    return acc;
-  }, {});
-  const mediaTypeCounts = contracts.reduce<Record<string, number>>((acc: Record<string, number>, c: ContractWithClient) => {
-    const key = c.mediaType ?? "outro";
-    acc[key] = (acc[key] ?? 0) + 1;
-    return acc;
-  }, {});
-  const totalValue = contracts.reduce((s: number, c: ContractWithClient) => s + (c.value ?? 0), 0);
+  const clientStatusCounts = clients.reduce<Record<string, number>>(
+    (acc: Record<string, number>, c: Client) => {
+      const key = c.commercialStatus ?? c.contractStatus ?? "Sem status";
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
+  const contractStatusCounts = contracts.reduce<Record<string, number>>(
+    (acc: Record<string, number>, c: ContractWithClient) => {
+      const days = Math.floor(
+        (new Date(c.endDate).getTime() - Date.now()) / 86400000,
+      );
+      const key =
+        days < 0 ? "Vencido" : days <= 30 ? "Perto de Vencer" : "Ativo";
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
+  const mediaTypeCounts = contracts.reduce<Record<string, number>>(
+    (acc: Record<string, number>, c: ContractWithClient) => {
+      const key = c.mediaType ?? "outro";
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
+  const totalValue = contracts.reduce(
+    (s: number, c: ContractWithClient) => s + (c.value ?? 0),
+    0,
+  );
 
   const stats = [
-    { label: "Visitas hoje", value: visitsToday.length, icon: Phone, tone: "text-primary" },
-    { label: "Vídeo hoje", value: videoToday.length, icon: Video, tone: "text-primary" },
-    { label: "Contato atrasado", value: contactOverdue.length, icon: Phone, tone: "text-destructive" },
-    { label: "Contratos a vencer", value: expiring.length, icon: FileText, tone: "text-amber-500" },
-    { label: "Clientes ativos", value: activeCount, icon: Users, tone: "text-emerald-500" },
+    {
+      label: "Visitas hoje",
+      value: visitsToday.length,
+      icon: Phone,
+      tone: "text-primary",
+    },
+    {
+      label: "Vídeo hoje",
+      value: videoToday.length,
+      icon: Video,
+      tone: "text-primary",
+    },
+    {
+      label: "Contato atrasado",
+      value: contactOverdue.length,
+      icon: Phone,
+      tone: "text-destructive",
+    },
+    {
+      label: "Contratos a vencer",
+      value: expiring.length,
+      icon: FileText,
+      tone: "text-amber-500",
+    },
+    {
+      label: "Clientes ativos",
+      value: activeCount,
+      icon: Users,
+      tone: "text-emerald-500",
+    },
   ];
 
   return (
@@ -63,7 +152,11 @@ export default async function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="Acompanhe as ações pendentes e o desempenho da carteira."
-        actions={<span className="text-sm text-muted-foreground">{clients.length} clientes na base</span>}
+        actions={
+          <span className="text-sm text-muted-foreground">
+            {clients.length} clientes na base
+          </span>
+        }
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -71,13 +164,19 @@ export default async function DashboardPage() {
           const Icon = s.icon;
           return (
             <Card key={s.label} className="overflow-hidden">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-muted-foreground">{s.label}</div>
-                  <div className="text-2xl font-bold mt-1 tabular-nums">{s.value}</div>
-                </div>
-                <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-muted ${s.tone}`}>
+              <CardContent className="p-5 flex items-center gap-4">
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted ${s.tone}`}
+                >
                   <Icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-muted-foreground truncate">
+                    {s.label}
+                  </div>
+                  <div className="text-2xl font-bold tabular-nums leading-tight">
+                    {s.value}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -85,141 +184,107 @@ export default async function DashboardPage() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground/80">Ações pendentes</h2>
-          <Card>
-            <CardContent className="p-0">
-              {visitsToday.length === 0 && videoToday.length === 0 && contactOverdue.length === 0 && adChange.length === 0 ? (
-                <div className="p-8 text-sm text-muted-foreground text-center">Nenhuma ação pendente.</div>
-              ) : (
-                <div className="max-h-80 overflow-auto divide-y">
-                  {visitsToday.map((c: Client) => (
-                    <Link key={`visit-${c.id}`} href={`/clients/${c.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
-                      <span className="flex min-w-0 items-center gap-2"><CalendarDays className="h-4 w-4 text-primary shrink-0" /><span className="truncate">Visitar <span className="font-medium">{c.name}</span>{c.nextAction ? ` — ${c.nextAction}` : ""}</span></span>
-                      <span className="text-xs text-muted-foreground shrink-0">Hoje</span>
-                    </Link>
-                  ))}
-                  {videoToday.map((c: Client) => (
-                    <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
-                      <span className="flex min-w-0 items-center gap-2"><Video className="h-4 w-4 text-primary shrink-0" /><span className="truncate">Enviar vídeo para <span className="font-medium">{c.name}</span></span></span>
-                      <span className="text-xs text-muted-foreground shrink-0">Hoje</span>
-                    </Link>
-                  ))}
-                  {contactOverdue.map((c: Client) => (
-                    <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
-                      <span className="flex min-w-0 items-center gap-2"><Phone className="h-4 w-4 text-destructive shrink-0" /><span className="truncate">Contatar <span className="font-medium">{c.name}</span></span></span>
-                      <span className="text-xs text-muted-foreground shrink-0">há {daysSinceContact(c.lastContactAt)} dias</span>
-                    </Link>
-                  ))}
-                  {adChange.map((c: Client) => (
-                    <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/50 text-sm transition-colors">
-                      <span className="flex min-w-0 items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" /><span className="truncate">Sugerir mudança de anúncio <span className="font-medium">{c.name}</span></span></span>
-                      <span className="text-xs text-muted-foreground shrink-0">pendente</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground/80">Notificações</h2>
-          <Card>
-            <CardContent className="p-0">
-              {notifications.length === 0 ? (
-                <div className="p-8 text-sm text-muted-foreground text-center">Sem notificações.</div>
-              ) : (
-                <div className="max-h-80 overflow-auto divide-y">
-                  {notifications.map((n: Notification) => (
-                    <div key={n.id} className="px-5 py-3 text-sm">
-                      <div className="font-medium">{n.title}</div>
-                      <div className="text-xs text-muted-foreground">{n.message}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground/80">Calendário e agenda</h2>
-          <CalendarView vendors={vendors as any} clients={calendarClients as any} />
-        </section>
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        {[
-          { title: "Clientes por situação", data: clientStatusCounts, colorOffset: 0 },
-          { title: "Contratos por status", data: contractStatusCounts, colorOffset: 2 },
-          { title: "Contratos por tipo", data: mediaTypeCounts, colorOffset: 4 },
-        ].map((chart) => {
-          const entries = Object.entries(chart.data) as [string, number][];
-          const total = entries.reduce((s: number, [, v]) => s + v, 0) || 1;
-          const colors = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7", "#ec4899"];
-          let angle = 0;
-          const slices = entries.map(([label, value], i) => {
-            const startAngle = angle;
-            const sliceAngle = (value / total) * 360;
-            angle += sliceAngle;
-            return { label, value, startAngle, sliceAngle, color: colors[(i + chart.colorOffset) % colors.length] };
-          });
-          function polar(cx: number, cy: number, r: number, deg: number) {
-            const rad = ((deg - 90) * Math.PI) / 180;
-            return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-          }
-          return (
-            <section key={chart.title} className="space-y-3">
-              <h2 className="text-sm font-semibold text-foreground/80">{chart.title}</h2>
-              <Card>
-                <CardContent className="p-4 flex flex-col items-center gap-4">
-                  <svg viewBox="0 0 100 100" className="w-40 h-40">
-                    {slices.map((sl, i) => {
-                      if (sl.sliceAngle >= 359.99) {
-                        return <circle key={i} cx="50" cy="50" r="40" fill={sl.color} />;
-                      }
-                      const start = polar(50, 50, 40, sl.startAngle);
-                      const end = polar(50, 50, 40, sl.startAngle + sl.sliceAngle);
-                      const largeArc = sl.sliceAngle > 180 ? 1 : 0;
-                      const d = `M 50 50 L ${start.x} ${start.y} A 40 40 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
-                      return <path key={i} d={d} fill={sl.color} />;
-                    })}
-                    <circle cx="50" cy="50" r="22" fill="var(--background)" />
-                  </svg>
-                  <div className="w-full space-y-1">
-                    {slices.map((sl) => (
-                      <div key={sl.label} className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-2">
-                          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: sl.color }} />
-                          {sl.label}
-                        </span>
-                        <span className="tabular-nums">{sl.value} ({Math.round((sl.value / total) * 100)}%)</span>
-                      </div>
+      <DashboardMiddle
+        vendors={vendors as any}
+        clients={calendarClients as any}
+        pendingActions={
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-foreground/80">Ações pendentes</h2>
+            <Card className="h-[360px]">
+              <CardContent className="p-0 h-[360px] overflow-auto">
+                {visitsToday.length === 0 && videoToday.length === 0 && contactOverdue.length === 0 && adChange.length === 0 ? (
+                  <div className="p-8 text-sm text-muted-foreground text-center">Nenhuma ação pendente.</div>
+                ) : (
+                  <div className="max-h-[360px] overflow-auto divide-y">
+                    {visitsToday.map((c: Client) => (
+                      <Link key={`visit-${c.id}`} href={`/clients/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-sm transition-colors">
+                        <CalendarDays className="h-4 w-4 text-primary shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">Visitar <span className="font-medium">{c.name}</span>{c.nextAction ? ` — ${c.nextAction}` : ""}</span>
+                        <span className="text-xs text-muted-foreground shrink-0 rounded-full bg-muted px-2 py-0.5">Hoje</span>
+                      </Link>
                     ))}
-                    {entries.length === 0 && <p className="text-sm text-muted-foreground">Sem dados.</p>}
+                    {videoToday.map((c: Client) => (
+                      <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-sm transition-colors">
+                        <Video className="h-4 w-4 text-primary shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">Enviar vídeo para <span className="font-medium">{c.name}</span></span>
+                        <span className="text-xs text-muted-foreground shrink-0 rounded-full bg-muted px-2 py-0.5">Hoje</span>
+                      </Link>
+                    ))}
+                    {contactOverdue.map((c: Client) => (
+                      <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-sm transition-colors">
+                        <Phone className="h-4 w-4 text-destructive shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">Contatar <span className="font-medium">{c.name}</span></span>
+                        <span className="text-xs text-muted-foreground shrink-0 rounded-full bg-muted px-2 py-0.5">há {daysSinceContact(c.lastContactAt)} dias</span>
+                      </Link>
+                    ))}
+                    {adChange.map((c: Client) => (
+                      <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-sm transition-colors">
+                        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">Sugerir mudança de anúncio <span className="font-medium">{c.name}</span></span>
+                        <span className="text-xs text-muted-foreground shrink-0 rounded-full bg-muted px-2 py-0.5">pendente</span>
+                      </Link>
+                    ))}
                   </div>
-                  {chart.title === "Contratos por tipo" && (
-                    <div className="text-xs text-muted-foreground">Valor total: R$ {totalValue.toLocaleString("pt-BR")}</div>
-                  )}
-                </CardContent>
-              </Card>
-            </section>
-          );
-        })}
-      </div>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        }
+      />
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-foreground/80">Lembretes</h2>
+        <Card>
+          <CardContent className="p-4">
+            {reminders.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-2">
+                Nenhum lembrete cadastrado.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {reminders.map((r: any) => (
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between gap-3 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{r.title}</div>
+                      {r.message && (
+                        <div className="text-xs text-muted-foreground truncate">
+                          {r.message}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {r.dueDate
+                        ? new Date(r.dueDate).toLocaleDateString("pt-BR")
+                        : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
       {expiring.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground/80">Contratos a vencer</h2>
+          <h2 className="text-sm font-semibold text-foreground/80">
+            Contratos a vencer
+          </h2>
           <Card>
             <CardContent className="p-0">
               <div className="divide-y">
                 {expiring.map((c: Client) => (
-                  <div key={c.id} className="flex justify-between gap-3 px-5 py-3 text-sm">
+                  <div
+                    key={c.id}
+                    className="flex justify-between gap-3 px-5 py-3 text-sm"
+                  >
                     <span className="font-medium truncate">{c.name}</span>
-                    <span className="text-muted-foreground tabular-nums shrink-0">{formatDate(c.contractEnd)}</span>
+                    <span className="text-muted-foreground tabular-nums shrink-0">
+                      {formatDate(c.contractEnd)}
+                    </span>
                   </div>
                 ))}
               </div>

@@ -27,6 +27,27 @@ export async function createReminderAction(data: z.infer<typeof reminderSchema>)
       clientId: d.clientId || null,
     },
   });
+  revalidatePath("/reminders");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function updateReminderAction(id: string, data: z.infer<typeof reminderSchema>) {
+  const userId = await getUserId();
+  const parsed = reminderSchema.safeParse(data);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  const d = parsed.data;
+  await prisma.reminder.update({
+    where: { id, userId },
+    data: {
+      title: d.title,
+      message: d.message ?? null,
+      dueDate: new Date(d.dueDate),
+      type: d.type,
+      clientId: d.clientId || null,
+    },
+  });
+  revalidatePath("/reminders");
   revalidatePath("/dashboard");
   return { success: true };
 }
@@ -44,6 +65,7 @@ export async function completeReminderAction(id: string) {
 export async function deleteReminderAction(id: string) {
   const userId = await getUserId();
   await prisma.reminder.delete({ where: { id, userId } });
+  revalidatePath("/reminders");
   revalidatePath("/dashboard");
   return { success: true };
 }
