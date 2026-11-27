@@ -19,6 +19,15 @@ import { OPTION_LISTS } from "@/lib/spreadsheet";
 import { ChevronDown, User, Phone, Mail, MapPin, Briefcase, DollarSign, Calendar, MessageSquare, Tag } from "lucide-react";
 import { z } from "zod";
 
+function formatCnpj(value: string) {
+  const d = value.replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 2) return d;
+  if (d.length <= 5) return `${d.slice(0,2)}.${d.slice(2)}`;
+  if (d.length <= 8) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5)}`;
+  if (d.length <= 12) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8)}`;
+  return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+}
+
 function formatPhone(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 11);
   if (digits.length <= 2) return digits;
@@ -115,7 +124,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
           </div>
           <div className="space-y-2">
             <Label>CNPJ / CPF</Label>
-            <Input {...register("cnpj")} />
+            <Input {...register("cnpj", { onChange: (e) => { e.target.value = formatCnpj(e.target.value); } })} />
           </div>
           <div className="space-y-2">
             <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Endereço completo</Label>
