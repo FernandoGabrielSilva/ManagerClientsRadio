@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { toast } from "@/components/ui/toast";
 import { Trash2, RotateCcw } from "lucide-react";
 import { restoreTrashItemsAction, purgeTrashItemsAction, type TrashItemRef } from "@/app/actions/trash";
@@ -22,7 +23,6 @@ type TrashItem = {
   deletedAt: string | Date;
 };
 
-const PAGE_SIZE = 15;
 
 export function TrashView({ items }: { items: TrashItem[] }) {
   const router = useRouter();
@@ -32,6 +32,7 @@ export function TrashView({ items }: { items: TrashItem[] }) {
   const [confirm, setConfirm] = useState<{ type: string; open: boolean }>({ type: "", open: false });
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const filtered = items.filter((it) => {
     const q = query.trim().toLowerCase();
@@ -40,9 +41,9 @@ export function TrashView({ items }: { items: TrashItem[] }) {
     return true;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const allSelected = paged.length > 0 && paged.every((it) => selected.has(it.id));
 
@@ -131,14 +132,15 @@ export function TrashView({ items }: { items: TrashItem[] }) {
         </Table>
       </div>
 
-      {filtered.length > PAGE_SIZE && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
-          <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filtered.length} itens)</span>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
-            <Button size="sm" variant="outline" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Próxima</Button>
-          </div>
-        </div>
+      {filtered.length > 0 && (
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+        />
       )}
 
       <Dialog open={confirm.open} onOpenChange={(o) => setConfirm((prev) => ({ ...prev, open: o }))}>

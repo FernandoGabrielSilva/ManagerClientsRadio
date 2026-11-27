@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
@@ -39,7 +40,6 @@ type Reminder = {
   client?: { name: string } | null;
 };
 
-const PAGE_SIZE = 10;
 const types = ["video", "contact", "ad_change", "contract_expiry", "custom"];
 const typeLabels: Record<string, string> = {
   video: "Vídeo",
@@ -71,6 +71,7 @@ export function RemindersView({
   const [confirmDialog, setConfirmDialog] = useState<{ type: string; open: boolean }>({ type: "", open: false });
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [open, setOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -105,9 +106,9 @@ export function RemindersView({
 
   useEffect(() => { setPage(1); }, [query, typeFilter, statusFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const allSelected = paged.length > 0 && paged.every((r) => selected.has(r.id));
 
@@ -341,14 +342,15 @@ export function RemindersView({
         </Table>
       </div>
 
-      {filtered.length > PAGE_SIZE && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
-          <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filtered.length} itens)</span>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
-            <Button size="sm" variant="outline" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Próxima</Button>
-          </div>
-        </div>
+      {filtered.length > 0 && (
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+        />
       )}
 
       <div className="flex justify-end">

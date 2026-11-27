@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SortFilter } from "@/components/ui/sort-filter";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/date-utils";
 import { differenceInDays } from "date-fns";
@@ -17,7 +18,6 @@ import { archiveContractsAction, deleteContractsAction, restoreContractsAction, 
 import { ContractForm } from "@/components/contracts/contract-form";
 import { Pencil } from "lucide-react";
 
-const PAGE_SIZE = 10;
 
 export function ContractTable({ contracts, clients = [], view = "active" }: { contracts: any[]; clients?: { id: string; name: string }[]; view?: string }) {
   const router = useRouter();
@@ -30,6 +30,7 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
   const [editContract, setEditContract] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
   const longPressStart = useRef<{ x: number; y: number } | null>(null);
@@ -65,9 +66,9 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
     return <div className="border rounded-lg p-8 text-sm text-muted-foreground text-center">Nenhum contrato cadastrado.</div>;
   }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const allSelected = paged.length > 0 && paged.every((c) => selected.has(c.id));
 
@@ -261,14 +262,15 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
         <div className="border rounded-lg p-8 text-sm text-muted-foreground text-center">Nenhum contrato encontrado.</div>
       )}
 
-      {filtered.length > PAGE_SIZE && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
-          <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filtered.length} itens)</span>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
-            <Button size="sm" variant="outline" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Próxima</Button>
-          </div>
-        </div>
+      {filtered.length > 0 && (
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+        />
       )}
 
       <Dialog open={!!editContract} onOpenChange={(o) => { if (!o) setEditContract(null); }}>
