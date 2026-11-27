@@ -71,7 +71,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
           contactEmail: client.contactEmail,
           contactRole: client.contactRole,
           offeredMediaType: client.offeredMediaType,
-          videoWeekday: client.videoWeekday,
+          videoWeekday: client.videoWeekday ?? 0,
           lastContactAt: client.lastContactAt ? new Date(client.lastContactAt).toISOString().slice(0, 10) : null,
           contactFrequencyDays: client.contactFrequencyDays,
           contractStatus: client.contractStatus,
@@ -92,7 +92,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
         }
       : {
           name: "",
-          videoWeekday: 1,
+          videoWeekday: 0,
           contactFrequencyDays: 14,
           contractStatus: "active",
           needsAdChange: false,
