@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/date-utils";
 import { differenceInDays } from "date-fns";
 import { ContractPdfUpload } from "@/components/contracts/contract-pdf-upload";
+import { ContractEditDialog } from "@/components/contracts/contract-edit-dialog";
 import { FileText as FileIcon } from "lucide-react";
 
 export default async function ContractDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,6 +18,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
   const where = role === "admin" ? { id } : { id, vendorId: userId };
   const contract = await prisma.contract.findFirst({ where, include: { client: true, vendor: true } });
   if (!contract) notFound();
+  const clients = await prisma.client.findMany({ where: { deletedAt: null, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } });
   const days = differenceInDays(new Date(contract.endDate), new Date());
   const status = days < 0 ? "Vencido" : days <= 30 ? "Perto de Vencer" : "Ativo";
   return (
@@ -45,6 +47,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
       {contract.notes && (
         <Card><CardHeader><CardTitle className="text-sm">Observações de Veiculação</CardTitle></CardHeader><CardContent className="text-sm whitespace-pre-wrap">{contract.notes}</CardContent></Card>
       )}
+      <div className="flex justify-end"><ContractEditDialog contract={contract} clients={clients} /></div>
       <Card>
         <CardHeader><CardTitle>PDF do contrato</CardTitle></CardHeader>
         <CardContent>

@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
-import { ClientForm } from "@/components/clients/client-form";
+import { ClientEditDialog } from "@/components/clients/client-edit-dialog";
 import { ContactHistorySection } from "@/components/clients/contact-history";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ClientEditDialog client={client} vendors={vendors} />
           <form action={async () => { "use server"; await markContactedAction(id); }}>
             <Button type="submit" variant="outline">Marcar contato hoje</Button>
           </form>
@@ -76,10 +77,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
       <ContactHistorySection clientId={id} histories={histories} />
 
-      <Card>
-        <CardHeader><CardTitle>Editar cliente</CardTitle></CardHeader>
-        <CardContent><ClientForm client={client} vendors={vendors} /></CardContent>
-      </Card>
     </div>
   );
 }
