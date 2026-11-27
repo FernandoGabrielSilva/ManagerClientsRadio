@@ -14,14 +14,20 @@ import { clearCompletedBackgroundJobsAction, getBackgroundJobsAction } from "@/a
 import { BackgroundJobStatus } from "@/components/settings/background-job-status";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/clients", label: "Clientes", icon: Users },
-  { href: "/reminders", label: "Lembretes", icon: Bell },
-  { href: "/contracts", label: "Contratos", icon: FileText },
-  { href: "/spreadsheet", label: "Planilha", icon: FileSpreadsheet },
-  { href: "/trash", label: "Lixeira", icon: Trash2 },
-  { href: "/settings", label: "Configurações", icon: Settings },
+const navGroups = [
+  { label: "Principal", items: [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/clients", label: "Clientes", icon: Users },
+    { href: "/reminders", label: "Lembretes", icon: Bell },
+  ]},
+  { label: "Gestão", items: [
+    { href: "/contracts", label: "Contratos", icon: FileText },
+    { href: "/spreadsheet", label: "Planilha", icon: FileSpreadsheet },
+    { href: "/trash", label: "Lixeira", icon: Trash2 },
+  ]},
+  { label: "Configurações", items: [
+    { href: "/settings", label: "Configurações", icon: Settings },
+  ]},
 ];
 
 export function Topbar({ user, notifications }: { user: { name?: string | null; email?: string | null; image?: string | null }; notifications?: { id: string; title: string; message: string; read: boolean; link: string | null; createdAt: Date | string }[] }) {
@@ -107,24 +113,29 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
                 </div>
               </SheetTitle>
             </SheetHeader>
-            <nav className="px-3 py-4 space-y-1">
-              {navItems.map((it) => {
-                const Icon = it.icon;
-                const active = pathname === it.href || pathname?.startsWith(it.href + "/");
-                return (
-                  <Link
-                    key={it.href}
-                    href={it.href}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                      active ? "bg-primary/10 text-primary font-medium" : "text-foreground/80 hover:bg-muted"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" /> {it.label}
-                  </Link>
-                );
-              })}
+            <nav className="px-3 py-3 space-y-3">
+              {navGroups.map((group: any) => (
+                <div key={group.label} className="space-y-1">
+                  <div className="px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</div>
+                  {group.items.map((it: any) => {
+                    const Icon = it.icon;
+                    const active = pathname === it.href || pathname?.startsWith(it.href + "/");
+                    return (
+                      <Link
+                        key={it.href}
+                        href={it.href}
+                        onClick={() => setOpen(false)}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                          active ? "bg-primary/10 text-primary font-medium" : "text-foreground/80 hover:bg-muted"
+                        )}
+                      >
+                        <Icon className="h-4 w-4" /> {it.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
             </nav>
             <div className="mt-auto p-3 border-t">
               <button
