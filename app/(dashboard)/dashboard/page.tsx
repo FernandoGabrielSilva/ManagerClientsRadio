@@ -61,7 +61,7 @@ export default async function DashboardPage() {
     vendorId: c.vendorId,
   }));
   const reminders = await prisma.reminder.findMany({
-    where: role === "admin" ? {} : { userId },
+    where: role === "admin" ? { deletedAt: null } : { userId, deletedAt: null },
     orderBy: { dueDate: "asc" },
     take: 8,
   });
