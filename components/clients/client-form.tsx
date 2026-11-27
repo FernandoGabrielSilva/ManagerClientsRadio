@@ -16,8 +16,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { WEEKDAYS, weekdayLabel } from "@/lib/date-utils";
 import { OPTION_LISTS } from "@/lib/spreadsheet";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, User, Phone, Mail, MapPin, Briefcase, DollarSign, Calendar, MessageSquare, Tag } from "lucide-react";
 import { z } from "zod";
+
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
 
 type Values = z.infer<typeof clientSchema>;
 
@@ -101,7 +109,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
             <Input {...register("legalName")} />
           </div>
           <div className="space-y-2">
-            <Label>Nome Fantasia / Cliente *</Label>
+            <Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Nome Fantasia / Cliente *</Label>
             <Input {...register("name")} />
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
@@ -110,20 +118,20 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
             <Input {...register("cnpj")} />
           </div>
           <div className="space-y-2">
-            <Label>Endereço completo</Label>
+            <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Endereço completo</Label>
             <Input {...register("address")} />
           </div>
           <div className="space-y-2">
-            <Label>Telefone / WhatsApp</Label>
-            <Input {...register("phone")} />
+            <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Telefone / WhatsApp</Label>
+            <Input {...register("phone", { onChange: (e) => { e.target.value = formatPhone(e.target.value); } })} />
           </div>
           <div className="space-y-2">
-            <Label>E-mail</Label>
+            <Label className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> E-mail</Label>
             <Input type="email" {...register("email")} />
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label>Contato responsável</Label>
+            <Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Contato responsável</Label>
             <Input {...register("contactName")} />
           </div>
           <div className="space-y-2">
@@ -131,11 +139,11 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
             <Input {...register("contactRole")} />
           </div>
           <div className="space-y-2">
-            <Label>Vendedor / Representante</Label>
+            <Label className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> Vendedor / Representante</Label>
             <Input {...register("responsible")} placeholder="Digite o nome" />
           </div>
           <div className="space-y-2">
-            <Label>Tipo de mídia ofertada</Label>
+            <Label className="flex items-center gap-1.5"><Tag className="h-3.5 w-3.5" /> Tipo de mídia ofertada</Label>
             <Input {...register("offeredMediaType")} placeholder="Ex: Spot 30s + Testemunhal 60s" />
           </div>
           <div className="space-y-2">
@@ -148,11 +156,11 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Valor mensal (R$)</Label>
+            <Label className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Valor mensal (R$)</Label>
             <Input type="number" step="0.01" {...register("contractValue", { valueAsNumber: true })} />
           </div>
           <div className="space-y-2">
-            <Label>Valor total (R$)</Label>
+            <Label className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Valor total (R$)</Label>
             <Input type="number" step="0.01" {...register("contractTotalValue", { valueAsNumber: true })} />
           </div>
 
@@ -165,11 +173,11 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Último contato</Label>
+            <Label className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Último contato</Label>
             <Input type="date" {...register("lastContactAt")} />
           </div>
           <div className="space-y-2">
-            <Label>Tipo de contato</Label>
+            <Label className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> Tipo de contato</Label>
             <Select value={watch("contactType") ?? ""} onValueChange={(v: string | null) => setValue("contactType", v)}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
@@ -215,7 +223,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Próxima ação</Label>
+            <Label className="flex items-center gap-1.5"><Tag className="h-3.5 w-3.5" /> Próxima ação</Label>
             <Select value={watch("nextAction") ?? ""} onValueChange={(v: string | null) => setValue("nextAction", v)}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
@@ -224,7 +232,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Data próxima ação</Label>
+            <Label className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Data próxima ação</Label>
             <Input type="date" {...register("nextActionDate")} />
           </div>
 
