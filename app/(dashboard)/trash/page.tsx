@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClientsTable } from "@/components/clients/clients-table";
 import { ContractTable } from "@/components/contracts/contract-table";
+import { RemindersView } from "@/components/reminders/reminders-view";
 
 export default async function TrashPage() {
   const session = await auth();
@@ -12,6 +13,8 @@ export default async function TrashPage() {
   const contractWhere = role === "admin" ? { deletedAt: { not: null } } : { vendorId: userId, deletedAt: { not: null } };
   const clients = await prisma.client.findMany({ where: clientWhere, orderBy: { name: "asc" }, include: { vendor: true } });
   const contracts = await prisma.contract.findMany({ where: contractWhere, include: { client: true, vendor: true }, orderBy: { endDate: "asc" } });
+  const reminderWhere = role === "admin" ? { deletedAt: { not: null } } : { userId, deletedAt: { not: null } };
+  const reminders = await prisma.reminder.findMany({ where: reminderWhere, include: { client: true }, orderBy: { dueDate: "asc" } });
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -22,6 +25,7 @@ export default async function TrashPage() {
       </div>
       <Card className="overflow-hidden"><CardContent className="p-0"><ClientsTable clients={clients as any} view="trash" /></CardContent></Card>
       <Card className="overflow-hidden"><CardContent className="p-0"><ContractTable contracts={contracts as any} view="trash" /></CardContent></Card>
+      <Card className="overflow-hidden"><CardContent className="p-0"><RemindersView reminders={reminders as any} clients={[]} view="trash" /></CardContent></Card>
     </div>
   );
 }
