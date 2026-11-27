@@ -107,10 +107,6 @@ export function RemindersView({
 
   useEffect(() => { setPage(1); }, [query, typeFilter, statusFilter]);
 
-  if (reminders.length === 0 && source.length === 0) {
-    return <div className="border rounded-lg p-10 text-sm text-muted-foreground text-center">Nenhum lembrete cadastrado.</div>;
-  }
-
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
