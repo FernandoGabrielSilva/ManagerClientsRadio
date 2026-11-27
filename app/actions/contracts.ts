@@ -21,7 +21,7 @@ export async function createContractAction(data: z.infer<typeof contractSchema>)
   const parsed = contractSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   const d = parsed.data;
-  const clientWhere: Prisma.ClientWhereInput = { id: d.clientId };
+  const clientWhere: Prisma.ClientWhereInput = { id: d.clientId, deletedAt: null, archivedAt: null };
   if (role !== "admin") clientWhere.OR = [{ userId }, { vendorId: userId }];
   const client = await prisma.client.findFirst({ where: clientWhere, select: { id: true } });
   if (!client) return { error: "Cliente não encontrado" };

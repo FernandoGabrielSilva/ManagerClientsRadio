@@ -23,7 +23,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
   const [contracts, allContracts, clients] = await Promise.all([
     prisma.contract.findMany({ where, include: { client: true, vendor: true }, orderBy: { endDate: "asc" } }),
     prisma.contract.findMany({ where: baseWhere, include: { client: true, vendor: true }, orderBy: { endDate: "asc" } }),
-    prisma.client.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.client.findMany({ where: { deletedAt: null, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   return (
     <div className="space-y-4">
