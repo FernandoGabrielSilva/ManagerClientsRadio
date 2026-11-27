@@ -67,8 +67,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             <div><div className="text-xs text-muted-foreground">Tipo de contato</div><div className="font-medium">{client.contactType ?? "—"}</div></div>
             <div><div className="text-xs text-muted-foreground">Próxima ação</div><div className="font-medium">{client.nextAction ?? "—"}</div></div>
             <div><div className="text-xs text-muted-foreground">Data próxima ação</div><div className="font-medium">{formatDate(client.nextActionDate)}</div></div>
-            <div><div className="text-xs text-muted-foreground">Prazo de retorno</div><div className="font-medium">{client.contactFrequencyDays} dias</div></div>
-            <div><div className="text-xs text-muted-foreground">Conferência de datas</div><div className="font-medium">{formatDate(client.dateConference)}</div></div>
             <div><div className="text-xs text-muted-foreground">Próximo contato</div><div className="font-medium">{formatDate(nextContactDate(client.lastContactAt, client.contactFrequencyDays))} {isContactOverdue(client.lastContactAt, client.contactFrequencyDays) && <Badge variant="destructive" className="ml-2">Atrasado</Badge>}</div></div>
             <div><div className="text-xs text-muted-foreground">Último vídeo</div><div className="font-medium">{formatDate(client.lastVideoSentAt)}</div></div>
           </div>
