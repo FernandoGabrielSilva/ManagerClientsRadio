@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { CalendarView } from "@/components/calendar/calendar-view";
+import { DashboardReminders } from "@/components/dashboard/dashboard-reminders";
 import { DashboardMiddle } from "@/components/dashboard/dashboard-middle";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Client, Contract, Notification } from "@prisma/client";
@@ -238,35 +239,7 @@ export default async function DashboardPage() {
         <h2 className="text-sm font-semibold text-foreground/80">Lembretes</h2>
         <Card>
           <CardContent className="p-4">
-            {reminders.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-2">
-                Nenhum lembrete cadastrado.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {reminders.map((r: any) => (
-                  <Link
-                    key={r.id}
-                    href="/reminders"
-                    className="flex items-center justify-between gap-3 text-sm hover:bg-muted/50 rounded-md px-1 -mx-1 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{r.title}</div>
-                      {r.message && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {r.message}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      {r.dueDate
-                        ? new Date(r.dueDate).toLocaleDateString("pt-BR")
-                        : ""}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            )}
+            <DashboardReminders reminders={reminders} />
           </CardContent>
         </Card>
       </section>
