@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import {
   isContactOverdue,
@@ -27,7 +28,8 @@ type ContractWithClient = Contract & { client: Client };
 
 export default async function DashboardPage() {
   const session = await auth();
-  const userId = session!.user!.id as string;
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id as string;
   const role = (session!.user as any).role;
   const where =
     role === "admin" ? undefined : { OR: [{ userId }, { vendorId: userId }] };
@@ -243,9 +245,10 @@ export default async function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {reminders.map((r: any) => (
-                  <div
+                  <Link
                     key={r.id}
-                    className="flex items-center justify-between gap-3 text-sm"
+                    href="/reminders"
+                    className="flex items-center justify-between gap-3 text-sm hover:bg-muted/50 rounded-md px-1 -mx-1 transition-colors"
                   >
                     <div className="min-w-0">
                       <div className="font-medium truncate">{r.title}</div>
@@ -260,7 +263,7 @@ export default async function DashboardPage() {
                         ? new Date(r.dueDate).toLocaleDateString("pt-BR")
                         : ""}
                     </span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

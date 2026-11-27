@@ -147,7 +147,9 @@ export async function deleteEventAction(id: string) {
 }
 
 export async function listEventsAction(start: string, end: string) {
-  const userId = await getUserId();
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Não autenticado");
+  const userId = session.user.id as string;
   return prisma.event.findMany({
     where: { userId, start: { gte: new Date(start), lte: new Date(end) } },
     include: { client: true },
