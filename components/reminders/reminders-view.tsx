@@ -51,20 +51,16 @@ const typeLabels: Record<string, string> = {
 
 export function RemindersView({
   reminders,
-  allReminders,
   clients,
-  view = "active",
 }: {
   reminders: Reminder[];
-  allReminders?: Reminder[];
   clients: { id: string; name: string }[];
-  view?: string;
 }) {
   const router = useRouter();
   useEffect(() => {
     getActiveClientsAction().then((c) => { if (Array.isArray(c) && c.length) setClientList(c); }).catch(() => {});
   }, []);
-  const source = allReminders ?? reminders;
+  const source = reminders;
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -261,39 +257,11 @@ export function RemindersView({
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>
-            {view === "active" && (
-              <>
-                <Button size="sm" variant="outline" onClick={() => setConfirmDialog({ type: "archive", open: true })}>Arquivar</Button>
-                <Button size="sm" variant="destructive" onClick={() => setConfirmDialog({ type: "delete", open: true })}>Apagar</Button>
-              </>
-            )}
-            {view === "archived" && (
-              <>
-                <Button size="sm" variant="outline" onClick={() => setConfirmDialog({ type: "restore", open: true })}>Restaurar</Button>
-                <Button size="sm" variant="destructive" onClick={() => setConfirmDialog({ type: "delete", open: true })}>Apagar</Button>
-              </>
-            )}
-            {view === "trash" && (
-              <>
-                <Button size="sm" variant="outline" onClick={() => setConfirmDialog({ type: "restore", open: true })}>Restaurar</Button>
-                <Button size="sm" variant="destructive" onClick={() => setConfirmDialog({ type: "purge", open: true })}>Excluir permanentemente</Button>
-              </>
-            )}
+            <Button size="sm" variant="destructive" onClick={() => setConfirmDialog({ type: "delete", open: true })}>Apagar</Button>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-1 rounded-lg border p-1 w-full sm:w-auto mb-2">
-        {[
-          { key: "active", label: "Ativos" },
-          { key: "archived", label: "Arquivados" },
-          { key: "trash", label: "Lixeira" },
-        ].map((t) => (
-          <Link key={t.key} href={`/reminders?view=${t.key}`} className={`flex-1 sm:flex-none text-center px-3 py-1.5 text-sm rounded-md ${view === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
-            {t.label}
-          </Link>
-        ))}
-      </div>
 
       <div className="max-h-[420px] overflow-x-auto border rounded-md">
         <Table className="min-w-[700px] w-full">

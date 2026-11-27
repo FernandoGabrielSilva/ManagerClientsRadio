@@ -84,7 +84,7 @@ export async function archiveRemindersAction(ids: string[]) {
 
 export async function deleteRemindersAction(ids: string[]) {
   const userId = await getUserId();
-  await prisma.reminder.updateMany({ where: { id: { in: ids }, userId }, data: { deletedAt: new Date(), archivedAt: null } });
+  await prisma.reminder.deleteMany({ where: { id: { in: ids }, userId } });
   revalidatePath("/reminders");
   revalidatePath("/dashboard");
   return { success: true };
@@ -115,7 +115,7 @@ export async function permanentDeleteRemindersAction(ids: string[]) {
 
 export async function deleteReminderAction(id: string) {
   const userId = await getUserId();
-  await prisma.reminder.update({ where: { id, userId }, data: { deletedAt: new Date(), archivedAt: null } });
+  await prisma.reminder.delete({ where: { id, userId } });
   revalidatePath("/reminders");
   revalidatePath("/dashboard");
   return { success: true };
