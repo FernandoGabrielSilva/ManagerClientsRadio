@@ -15,6 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { z } from "zod";
 
+function formatCurrency(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  const num = Number(digits) / 100;
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 type Values = z.infer<typeof contractSchema>;
 
 export function ContractForm({ clients: initialClients, contract, onSuccess, onCancel }: { clients: { id: string; name: string }[]; contract?: any; onSuccess?: () => void; onCancel?: () => void }) {
@@ -120,11 +127,29 @@ export function ContractForm({ clients: initialClients, contract, onSuccess, onC
         </div>
         <div className="space-y-2">
           <Label>Valor Mensal (R$)</Label>
-          <Input type="number" step="0.01" {...register("value", { valueAsNumber: true })} />
+          <Input
+            value={watch("value") != null ? Number(watch("value")).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
+            onChange={(e) => {
+              const formatted = formatCurrency(e.target.value);
+              e.target.value = formatted;
+              const digits = e.target.value.replace(/\D/g, "");
+              setValue("value", digits ? Number(digits) / 100 : null);
+            }}
+            placeholder="0,00"
+          />
         </div>
         <div className="space-y-2">
           <Label>Valor Total / Valor Bruto (R$)</Label>
-          <Input type="number" step="0.01" {...register("totalValue", { valueAsNumber: true })} />
+          <Input
+            value={watch("totalValue") != null ? Number(watch("totalValue")).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
+            onChange={(e) => {
+              const formatted = formatCurrency(e.target.value);
+              e.target.value = formatted;
+              const digits = e.target.value.replace(/\D/g, "");
+              setValue("totalValue", digits ? Number(digits) / 100 : null);
+            }}
+            placeholder="0,00"
+          />
         </div>
         <div className="space-y-2 md:col-span-2">
           <Label>Pagamento / Vencimento</Label>
