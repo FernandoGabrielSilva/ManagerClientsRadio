@@ -28,6 +28,7 @@ import {
 } from "@/app/actions/events";
 import { formatDate, nextContactDate } from "@/lib/date-utils";
 import { CalendarDays as CalendarIcon } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { isSameDay, startOfMonth, endOfMonth } from "date-fns";
 
 type Vendor = { id: string; name: string | null };

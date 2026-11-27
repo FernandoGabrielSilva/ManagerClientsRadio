@@ -1,5 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { ensureClientContactEventsForUserInBackground, syncPendingGoogleEventsForUserInBackground } from "@/app/actions/events";
 import { prisma } from "@/lib/db";
 import {
   isContactOverdue,
