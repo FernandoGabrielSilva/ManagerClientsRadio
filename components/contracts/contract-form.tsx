@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { contractSchema } from "@/lib/validators";
 import { createContractAction } from "@/app/actions/contracts";
+import { getActiveClientsAction } from "@/app/actions/clients";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { Input } from "@/components/ui/input";
@@ -15,8 +17,12 @@ import { z } from "zod";
 
 type Values = z.infer<typeof contractSchema>;
 
-export function ContractForm({ clients, onSuccess, onCancel }: { clients: { id: string; name: string }[]; onSuccess?: () => void; onCancel?: () => void }) {
+export function ContractForm({ clients: initialClients, onSuccess, onCancel }: { clients: { id: string; name: string }[]; onSuccess?: () => void; onCancel?: () => void }) {
   const router = useRouter();
+  const [clients, setClients] = useState(initialClients);
+  useEffect(() => {
+    getActiveClientsAction().then((c) => { if (Array.isArray(c) && c.length) setClients(c); }).catch(() => {});
+  }, []);
   const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<Values>({
     resolver: zodResolver(contractSchema),
     defaultValues: {

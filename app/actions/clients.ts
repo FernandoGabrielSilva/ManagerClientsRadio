@@ -234,6 +234,15 @@ function toNumberValue(v: any): number | null {
   return isNaN(n) ? null : n;
 }
 
+export async function getActiveClientsAction() {
+  const session = await auth();
+  const userId = session!.user!.id as string;
+  const role = (session!.user as { role?: string }).role;
+  const where = role === "admin" ? { deletedAt: null, archivedAt: null } : { deletedAt: null, archivedAt: null, OR: [{ userId }, { vendorId: userId }] };
+  const clients = await prisma.client.findMany({ where, select: { id: true, name: true }, orderBy: { name: "asc" } });
+  return clients;
+}
+
 export async function getAllClientsForExportAction() {
   const session = await auth();
   const userId = session!.user!.id as string;
