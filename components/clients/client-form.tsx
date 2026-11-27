@@ -155,10 +155,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
             <Label>Valor proposto (R$)</Label>
             <Input type="number" step="0.01" {...register("contractValue", { valueAsNumber: true })} />
           </div>
-          <div className="space-y-2">
-            <Label>Prazo de retorno (dias)</Label>
-            <Input type="number" min={1} max={365} {...register("contactFrequencyDays", { valueAsNumber: true })} />
-          </div>
+
         </div>
       </section>
 

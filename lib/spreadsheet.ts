@@ -103,9 +103,7 @@ export const OPTION_LISTS = {
     "Outro / A definir",
   ],
   mediaTypes: [
-    "Spot 15s",
     "Spot 30s",
-    "Spot 60s",
     "Patrocínio de Programa",
     "Testemunhal ao Vivo",
     "Flash ao Vivo / Blitz",
