@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { deleteReminderAction } from "@/app/actions/reminders";
 import { toast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/date-utils";
@@ -12,12 +13,16 @@ import { formatDate } from "@/lib/date-utils";
 export function DashboardReminders({ reminders }: { reminders: any[] }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  async function handleDelete(id: string) {
-    if (!confirm("Excluir lembrete?")) return;
-    setDeleting(id);
-    await deleteReminderAction(id);
+  async function confirmDelete() {
+    if (!deleteId) return;
+    setDeleting(deleteId);
+    await deleteReminderAction(deleteId);
     setDeleting(null);
+    setDeleteOpen(false);
+    setDeleteId(null);
     toast.add({ title: "Excluído" });
     router.refresh();
   }
@@ -40,12 +45,22 @@ export function DashboardReminders({ reminders }: { reminders: any[] }) {
             <Button size="sm" variant="ghost" onClick={() => window.location.href = "/reminders"}>
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => handleDelete(r.id)} disabled={deleting === r.id}>
+            <Button size="sm" variant="ghost" onClick={() => { setDeleteId(r.id); setDeleteOpen(true); }} disabled={deleting === r.id}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
       ))}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Excluir lembrete</DialogTitle></DialogHeader>
+          <p className="text-sm">Deseja excluir este lembrete?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={!!deleting}>Excluir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
