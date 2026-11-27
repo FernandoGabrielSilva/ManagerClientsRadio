@@ -40,6 +40,13 @@ type Reminder = {
 
 const PAGE_SIZE = 10;
 const types = ["video", "contact", "ad_change", "contract_expiry", "custom"];
+const typeLabels: Record<string, string> = {
+  video: "Vídeo",
+  contact: "Contato",
+  ad_change: "Mudança de anúncio",
+  contract_expiry: "Vencimento de contrato",
+  custom: "Personalizado",
+};
 
 export function RemindersView({
   reminders,
@@ -63,6 +70,8 @@ export function RemindersView({
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Reminder | null>(null);
   const [form, setForm] = useState({ title: "", message: "", dueDate: "", type: "custom", clientId: "" });
 
@@ -182,9 +191,16 @@ export function RemindersView({
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Excluir lembrete?")) return;
-    await deleteRemindersAction([id]);
+    setDeleteId(id);
+    setDeleteOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    await deleteRemindersAction([deleteId]);
     toast.add({ title: "Excluído" });
+    setDeleteOpen(false);
+    setDeleteId(null);
     router.refresh();
   }
 
@@ -309,7 +325,7 @@ export function RemindersView({
                 </TableCell>
                 <TableCell className="font-medium">{r.title}</TableCell>
                 <TableCell className="text-muted-foreground">{r.client?.name ?? "—"}</TableCell>
-                <TableCell><Badge variant="outline" className="font-normal">{r.type}</Badge></TableCell>
+                <TableCell><Badge variant="outline" className="font-normal">{typeLabels[r.type] ?? r.type}</Badge></TableCell>
                 <TableCell className="tabular-nums">{formatDate(new Date(r.dueDate))}</TableCell>
                 <TableCell>{r.completed ? <Badge variant="secondary">Concluído</Badge> : <Badge>Pendente</Badge>}</TableCell>
                 <TableCell className="text-right">
@@ -364,7 +380,7 @@ export function RemindersView({
               <Select value={form.type} onValueChange={(v: string | null) => setForm({ ...form, type: v ?? "custom" })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {types.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {types.map((t) => <SelectItem key={t} value={t}>{typeLabels[t] ?? t}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -392,6 +408,16 @@ export function RemindersView({
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDialog({ type: "", open: false })}>Cancelar</Button>
             <Button variant="destructive" onClick={runAction} disabled={loading}>{loading ? "Processando..." : "Confirmar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Excluir lembrete</DialogTitle></DialogHeader>
+          <p className="text-sm">Deseja excluir este lembrete?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={confirmDelete}>Excluir</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
