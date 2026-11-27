@@ -13,6 +13,8 @@ export default async function RemindersPage({ searchParams }: { searchParams: Pr
   const viewWhere =
     view === "archived"
       ? { archivedAt: { not: null }, deletedAt: null }
+      : view === "trash"
+      ? { deletedAt: { not: null } }
       : { archivedAt: null, deletedAt: null };
   const baseWhere = role === "admin" ? {} : { userId };
   const where = { ...baseWhere, ...viewWhere };
