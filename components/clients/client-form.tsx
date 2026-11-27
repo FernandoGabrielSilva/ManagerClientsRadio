@@ -19,13 +19,26 @@ import { OPTION_LISTS } from "@/lib/spreadsheet";
 import { ChevronDown, User, Phone, Mail, MapPin, Briefcase, DollarSign, Calendar, MessageSquare, Tag } from "lucide-react";
 import { z } from "zod";
 
-function formatCnpj(value: string) {
+function formatCpfCnpj(value: string) {
   const d = value.replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 11) {
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`;
+    return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+  }
   if (d.length <= 2) return d;
   if (d.length <= 5) return `${d.slice(0,2)}.${d.slice(2)}`;
   if (d.length <= 8) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5)}`;
   if (d.length <= 12) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8)}`;
   return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+}
+
+function formatCurrency(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  const num = Number(digits) / 100;
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function formatPhone(value: string) {
@@ -124,7 +137,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
           </div>
           <div className="space-y-2">
             <Label>CNPJ / CPF</Label>
-            <Input {...register("cnpj", { onChange: (e) => { e.target.value = formatCnpj(e.target.value); } })} />
+            <Input {...register("cnpj", { onChange: (e) => { e.target.value = formatCpfCnpj(e.target.value); } })} />
           </div>
           <div className="space-y-2">
             <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Endereço completo</Label>
@@ -166,11 +179,29 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
           </div>
           <div className="space-y-2">
             <Label className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Valor mensal (R$)</Label>
-            <Input type="number" step="0.01" {...register("contractValue", { valueAsNumber: true })} />
+            <Input
+              value={watch("contractValue") != null ? Number(watch("contractValue")).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
+              onChange={(e) => {
+                const formatted = formatCurrency(e.target.value);
+                e.target.value = formatted;
+                const digits = e.target.value.replace(/\D/g, "");
+                setValue("contractValue", digits ? Number(digits) / 100 : null);
+              }}
+              placeholder="0,00"
+            />
           </div>
           <div className="space-y-2">
             <Label className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Valor total (R$)</Label>
-            <Input type="number" step="0.01" {...register("contractTotalValue", { valueAsNumber: true })} />
+            <Input
+              value={watch("contractTotalValue") != null ? Number(watch("contractTotalValue")).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
+              onChange={(e) => {
+                const formatted = formatCurrency(e.target.value);
+                e.target.value = formatted;
+                const digits = e.target.value.replace(/\D/g, "");
+                setValue("contractTotalValue", digits ? Number(digits) / 100 : null);
+              }}
+              placeholder="0,00"
+            />
           </div>
 
         </div>

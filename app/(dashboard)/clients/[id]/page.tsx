@@ -58,7 +58,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             <div><div className="text-xs text-muted-foreground">Vendedor / Representante</div><div className="font-medium">{client.responsible ?? "—"}</div></div>
             <div><div className="text-xs text-muted-foreground">Contato responsável</div><div className="font-medium">{client.contactName ?? "—"}</div></div>
             <div><div className="text-xs text-muted-foreground">Cargo / Setor</div><div className="font-medium">{client.contactRole ?? "—"}</div></div>
-            <div><div className="text-xs text-muted-foreground">Telefone / WhatsApp</div><div className="font-medium">{client.phone ?? "—"}</div></div>
+            <div><div className="text-xs text-muted-foreground">Telefone / WhatsApp</div><div className="font-medium">{client.phone ? client.phone.replace(/\D/g, "").replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3") : "—"}</div></div>
             <div><div className="text-xs text-muted-foreground">Situação comercial</div><div className="font-medium">{client.commercialStatus ?? client.contractStatus}</div></div>
             <div><div className="text-xs text-muted-foreground">Tipo de mídia ofertada</div><div className="font-medium">{client.offeredMediaType ?? "—"}</div></div>
             <div><div className="text-xs text-muted-foreground">Valor mensal</div><div className="font-medium tabular-nums">{client.contractValue != null ? `R$ ${client.contractValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</div></div>
