@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SortFilter } from "@/components/ui/sort-filter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/date-utils";
 import { differenceInDays } from "date-fns";
@@ -21,6 +22,7 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState("endDate|asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ type: string; open: boolean }>({ type: "", open: false });
   const [loading, setLoading] = useState(false);
@@ -36,13 +38,23 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
     return days < 0 ? "Vencido" : days <= 30 ? "Perto de Vencer" : "Ativo";
   }
 
-  const filtered = contracts.filter((c) => {
-    const q = query.trim().toLowerCase();
-    if (q && ![c.number, c.client?.name, c.sellerName, c.vendor?.name, c.mediaType, c.status].some((v) => String(v ?? "").toLowerCase().includes(q))) return false;
-    if (typeFilter !== "all" && c.mediaType !== typeFilter) return false;
-    if (statusFilter !== "all" && contractStatus(c) !== statusFilter) return false;
-    return true;
-  });
+  const filtered = contracts
+    .filter((c) => {
+      const q = query.trim().toLowerCase();
+      if (q && ![c.number, c.client?.name, c.sellerName, c.vendor?.name, c.mediaType, c.status].some((v) => String(v ?? "").toLowerCase().includes(q))) return false;
+      if (typeFilter !== "all" && c.mediaType !== typeFilter) return false;
+      if (statusFilter !== "all" && contractStatus(c) !== statusFilter) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const [field, dir] = sort.split("|");
+      let cmp = 0;
+      if (field === "client") cmp = String(a.client?.name ?? "").localeCompare(String(b.client?.name ?? ""));
+      else if (field === "startDate") cmp = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+      else if (field === "value") cmp = (a.value ?? 0) - (b.value ?? 0);
+      else cmp = new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
+      return dir === "desc" ? -cmp : cmp;
+    });
 
   useEffect(() => { setPage(1); }, [query, typeFilter, statusFilter]);
 
@@ -146,6 +158,17 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
             <SelectItem value="Vencido">Vencido</SelectItem>
           </SelectContent>
         </Select>
+        <SortFilter
+          value={sort}
+          onChange={(v) => setSort(v ?? "endDate|asc")}
+          fields={[
+            { value: "endDate", label: "Término" },
+            { value: "startDate", label: "Início" },
+            { value: "client", label: "Cliente" },
+            { value: "value", label: "Valor" },
+          ]}
+          triggerLabel="Ordenar"
+        />
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>

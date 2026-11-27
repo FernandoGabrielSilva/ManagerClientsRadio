@@ -113,7 +113,12 @@ export async function restoreContractsAction(ids: string[]) {
   const role = (session!.user as any).role;
   const where: Prisma.ContractWhereInput = { id: { in: ids } };
   if (role !== "admin") where.vendorId = userId;
-  await prisma.contract.updateMany({ where, data: { archivedAt: null, deletedAt: null } });
+  const toRestore = await prisma.contract.findMany({ where: { ...where, deletedAt: { not: null } } });
+  for (const c of toRestore) {
+    const dup = await prisma.contract.findFirst({ where: { vendorId: userId, deletedAt: null, number: c.number, clientId: c.clientId } });
+    if (dup) continue;
+    await prisma.contract.update({ where: { id: c.id }, data: { archivedAt: null, deletedAt: null } });
+  }
   revalidatePath("/contracts");
   return { success: true };
 }
@@ -213,7 +218,7 @@ export async function importContractsAction(rows: any[]) {
   const userId = session.user.id as string;
   const role = (session.user as { role?: string }).role;
   const safeRows = Array.isArray(rows) ? rows.slice(0, 500) : [];
-  const existingWhere: Prisma.ContractWhereInput = role === "admin" ? {} : { vendorId: userId };
+  const existingWhere: Prisma.ContractWhereInput = role === "admin" ? { deletedAt: null } : { vendorId: userId, deletedAt: null };
   const existing = await prisma.contract.findMany({ where: existingWhere });
   const seen = new Set(existing.map(existingContractKey));
   let count = 0;

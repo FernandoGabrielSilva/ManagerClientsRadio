@@ -1,0 +1,2 @@
+ALTER TABLE "Reminder" ADD COLUMN "archivedAt" TIMESTAMP(3);
+ALTER TABLE "Reminder" ADD COLUMN "deletedAt" TIMESTAMP(3);

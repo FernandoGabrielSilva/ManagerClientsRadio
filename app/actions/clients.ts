@@ -151,7 +151,12 @@ export async function restoreClientsAction(ids: string[]) {
   const role = (session!.user as any).role;
   const where: Prisma.ClientWhereInput = { id: { in: ids } };
   if (role !== "admin") where.OR = [{ userId }, { vendorId: userId }];
-  await prisma.client.updateMany({ where, data: { archivedAt: null, deletedAt: null } });
+  const toRestore = await prisma.client.findMany({ where: { ...where, deletedAt: { not: null } } });
+  for (const c of toRestore) {
+    const dup = await prisma.client.findFirst({ where: { userId, deletedAt: null, name: c.name } });
+    if (dup) continue;
+    await prisma.client.update({ where: { id: c.id }, data: { archivedAt: null, deletedAt: null } });
+  }
   await ensureClientContactEventsForUser(userId, role);
   revalidatePath("/clients");
   return { success: true };
@@ -314,7 +319,7 @@ export async function importClientsAction(rows: any[]) {
   const userId = session.user.id as string;
   const role = (session.user as any).role;
   const safeRows = Array.isArray(rows) ? rows.slice(0, 500) : [];
-  const existing = await prisma.client.findMany({ where: { userId } });
+  const existing = await prisma.client.findMany({ where: { userId, deletedAt: null } });
   const seen = new Set(existing.map(existingClientKey));
   let count = 0;
   let skipped = 0;

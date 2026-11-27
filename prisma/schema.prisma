@@ -225,6 +225,8 @@ model Reminder {
   completed   Boolean      @default(false)
   completedAt DateTime?
   notifiedAt  DateTime?
+  archivedAt  DateTime?
+  deletedAt   DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 

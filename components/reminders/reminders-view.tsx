@@ -1,19 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { Plus, Pencil, Trash2, CheckCircle2 } from "lucide-react";
-import { createReminderAction, updateReminderAction, deleteReminderAction, completeReminderAction } from "@/app/actions/reminders";
+import { Plus, Pencil, Trash2, CheckCircle2, Archive, RotateCcw } from "lucide-react";
+import {
+  createReminderAction,
+  updateReminderAction,
+  deleteRemindersAction,
+  archiveRemindersAction,
+  restoreRemindersAction,
+  permanentDeleteRemindersAction,
+  completeReminderAction,
+  uncompleteReminderAction,
+} from "@/app/actions/reminders";
 import { formatDate } from "@/lib/date-utils";
+import { SortFilter } from "@/components/ui/sort-filter";
 
 type Reminder = {
   id: string;
@@ -22,29 +34,121 @@ type Reminder = {
   dueDate: string | Date;
   type: string;
   completed: boolean;
+  clientId: string | null;
   client?: { name: string } | null;
-  clientId?: string | null;
 };
 
+const PAGE_SIZE = 10;
 const types = ["video", "contact", "ad_change", "contract_expiry", "custom"];
 
-export function RemindersView({ reminders, clients }: { reminders: Reminder[]; clients: { id: string; name: string }[] }) {
+export function RemindersView({
+  reminders,
+  allReminders,
+  clients,
+  view = "active",
+}: {
+  reminders: Reminder[];
+  allReminders?: Reminder[];
+  clients: { id: string; name: string }[];
+  view?: string;
+}) {
   const router = useRouter();
+  const source = allReminders ?? reminders;
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState("dueDate|asc");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmDialog, setConfirmDialog] = useState<{ type: string; open: boolean }>({ type: "", open: false });
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Reminder | null>(null);
   const [form, setForm] = useState({ title: "", message: "", dueDate: "", type: "custom", clientId: "" });
-  const [loading, setLoading] = useState(false);
+
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+  const longPressStart = useRef<{ x: number; y: number } | null>(null);
+
+  const typesList = useMemo(() => Array.from(new Set(reminders.map((r) => r.type).filter(Boolean))), [reminders]);
+
+  const filtered = reminders
+    .filter((r) => {
+      const q = query.trim().toLowerCase();
+      if (q && ![r.title, r.message, r.type, r.client?.name].some((v) => String(v ?? "").toLowerCase().includes(q))) return false;
+      if (typeFilter !== "all" && r.type !== typeFilter) return false;
+      if (statusFilter !== "all") {
+        const st = r.completed ? "Concluído" : "Pendente";
+        if (st !== statusFilter) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const [field, dir] = sort.split("|");
+      let cmp = 0;
+      if (field === "title") cmp = a.title.localeCompare(b.title);
+      else cmp = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      return dir === "desc" ? -cmp : cmp;
+    });
+
+  useEffect(() => { setPage(1); }, [query, typeFilter, statusFilter]);
+
+  if (reminders.length === 0 && source.length === 0) {
+    return <div className="border rounded-lg p-10 text-sm text-muted-foreground text-center">Nenhum lembrete cadastrado.</div>;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const allSelected = paged.length > 0 && paged.every((r) => selected.has(r.id));
+
+  function toggleAll() {
+    const next = new Set(selected);
+    if (allSelected) paged.forEach((r) => next.delete(r.id));
+    else paged.forEach((r) => next.add(r.id));
+    setSelected(next);
+  }
+
+  function toggle(id: string) {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelected(next);
+  }
+
+  function clearLongPress() {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    longPressStart.current = null;
+  }
+  function onRowPointerDown(e: React.PointerEvent, id: string) {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button, a, input, [role='checkbox'], [data-slot='checkbox']")) return;
+    longPressFired.current = false;
+    longPressStart.current = { x: e.clientX, y: e.clientY };
+    clearLongPress();
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    }, 450);
+  }
+  function onRowPointerMove(e: React.PointerEvent) {
+    if (!longPressStart.current) return;
+    const dx = e.clientX - longPressStart.current.x;
+    const dy = e.clientY - longPressStart.current.y;
+    if (Math.hypot(dx, dy) > 8) clearLongPress();
+  }
+  function onRowPointerUp() { clearLongPress(); }
 
   function resetForm() {
     setForm({ title: "", message: "", dueDate: "", type: "custom", clientId: "" });
     setEditing(null);
   }
 
-  function openCreate() {
-    resetForm();
-    setOpen(true);
-  }
-
+  function openCreate() { resetForm(); setOpen(true); }
   function openEdit(r: Reminder) {
     setEditing(r);
     setForm({
@@ -79,26 +183,108 @@ export function RemindersView({ reminders, clients }: { reminders: Reminder[]; c
 
   async function handleDelete(id: string) {
     if (!confirm("Excluir lembrete?")) return;
-    await deleteReminderAction(id);
+    await deleteRemindersAction([id]);
     toast.add({ title: "Excluído" });
     router.refresh();
   }
 
-  async function handleComplete(id: string) {
-    await completeReminderAction(id);
-    toast.add({ title: "Concluído" });
-    router.refresh();
+  async function runAction() {
+    setLoading(true);
+    const ids = [...selected];
+    try {
+      if (confirmDialog.type === "archive") await archiveRemindersAction(ids);
+      else if (confirmDialog.type === "delete") await deleteRemindersAction(ids);
+      else if (confirmDialog.type === "restore") await restoreRemindersAction(ids);
+      else if (confirmDialog.type === "purge") await permanentDeleteRemindersAction(ids);
+      toast.add({ title: "Concluído" });
+      setSelected(new Set());
+      router.refresh();
+    } catch (e) {
+      toast.add({ title: "Erro", description: String(e) });
+    }
+    setLoading(false);
+    setConfirmDialog({ type: "", open: false });
   }
 
+  const labels: Record<string, string> = {
+    archive: "arquivar",
+    delete: "mover para a lixeira",
+    restore: "restaurar",
+    purge: "excluir permanentemente",
+  };
+
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Novo lembrete</Button>
+    <div className="p-4 space-y-3">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
+        <Input placeholder="Pesquisar lembretes..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-full sm:max-w-xs" />
+        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "all")}>
+          <SelectTrigger className="w-full sm:w-40"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos tipos</SelectItem>
+            {typesList.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
+          <SelectTrigger className="w-full sm:w-40"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos status</SelectItem>
+            <SelectItem value="Pendente">Pendente</SelectItem>
+            <SelectItem value="Concluído">Concluído</SelectItem>
+          </SelectContent>
+        </Select>
+        <SortFilter
+          value={sort}
+          onChange={(v) => setSort(v ?? "dueDate|asc")}
+          fields={[
+            { value: "dueDate", label: "Vencimento" },
+            { value: "title", label: "Título" },
+          ]}
+          triggerLabel="Ordenar"
+        />
+        {selected.size > 0 && (
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+            <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>
+            {view === "active" && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setConfirmDialog({ type: "archive", open: true })}>Arquivar</Button>
+                <Button size="sm" variant="destructive" onClick={() => setConfirmDialog({ type: "delete", open: true })}>Apagar</Button>
+              </>
+            )}
+            {view === "archived" && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setConfirmDialog({ type: "restore", open: true })}>Restaurar</Button>
+                <Button size="sm" variant="destructive" onClick={() => setConfirmDialog({ type: "delete", open: true })}>Apagar</Button>
+              </>
+            )}
+            {view === "trash" && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setConfirmDialog({ type: "restore", open: true })}>Restaurar</Button>
+                <Button size="sm" variant="destructive" onClick={() => setConfirmDialog({ type: "purge", open: true })}>Excluir permanentemente</Button>
+              </>
+            )}
+          </div>
+        )}
       </div>
-      <div className="border rounded-md overflow-x-auto">
-        <Table>
+
+      <div className="flex items-center gap-1 rounded-lg border p-1 w-full sm:w-auto mb-2">
+        {[
+          { key: "active", label: "Ativos" },
+          { key: "archived", label: "Arquivados" },
+          { key: "trash", label: "Lixeira" },
+        ].map((t) => (
+          <Link key={t.key} href={`/reminders?view=${t.key}`} className={`flex-1 sm:flex-none text-center px-3 py-1.5 text-sm rounded-md ${view === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+            {t.label}
+          </Link>
+        ))}
+      </div>
+
+      <div className="max-h-[420px] overflow-x-auto border rounded-md">
+        <Table className="min-w-[700px] w-full">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableHead className="w-10">
+                <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
+              </TableHead>
               <TableHead>Título</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Tipo</TableHead>
@@ -108,27 +294,53 @@ export function RemindersView({ reminders, clients }: { reminders: Reminder[]; c
             </TableRow>
           </TableHeader>
           <TableBody>
-            {reminders.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum lembrete.</TableCell></TableRow>
-            )}
-            {reminders.map((r) => (
-              <TableRow key={r.id}>
+            {paged.map((r) => (
+              <TableRow
+                key={r.id}
+                className="cursor-pointer select-none"
+                onPointerDown={(e) => onRowPointerDown(e, r.id)}
+                onPointerMove={onRowPointerMove}
+                onPointerUp={onRowPointerUp}
+                onPointerCancel={onRowPointerUp}
+                onPointerLeave={onRowPointerUp}
+              >
+                <TableCell onPointerDown={(e) => e.stopPropagation()}>
+                  <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
+                </TableCell>
                 <TableCell className="font-medium">{r.title}</TableCell>
-                <TableCell>{r.client?.name ?? "—"}</TableCell>
-                <TableCell><Badge variant="outline">{r.type}</Badge></TableCell>
+                <TableCell className="text-muted-foreground">{r.client?.name ?? "—"}</TableCell>
+                <TableCell><Badge variant="outline" className="font-normal">{r.type}</Badge></TableCell>
                 <TableCell className="tabular-nums">{formatDate(new Date(r.dueDate))}</TableCell>
                 <TableCell>{r.completed ? <Badge variant="secondary">Concluído</Badge> : <Badge>Pendente</Badge>}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    {!r.completed && <Button size="sm" variant="ghost" onClick={() => handleComplete(r.id)}><CheckCircle2 className="h-4 w-4" /></Button>}
+                    {!r.completed && <Button size="sm" variant="ghost" onClick={async () => { await completeReminderAction(r.id); router.refresh(); }}><CheckCircle2 className="h-4 w-4" /></Button>}
+                    {r.completed && <Button size="sm" variant="ghost" onClick={async () => { await uncompleteReminderAction(r.id); router.refresh(); }}>↩</Button>}
                     <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
                     <Button size="sm" variant="ghost" onClick={() => handleDelete(r.id)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </TableCell>
               </TableRow>
             ))}
+            {filtered.length === 0 && (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhum lembrete encontrado.</TableCell></TableRow>
+            )}
           </TableBody>
         </Table>
+      </div>
+
+      {filtered.length > PAGE_SIZE && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
+          <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filtered.length} itens)</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
+            <Button size="sm" variant="outline" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Próxima</Button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Novo lembrete</Button>
       </div>
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
@@ -169,6 +381,17 @@ export function RemindersView({ reminders, clients }: { reminders: Reminder[]; c
           <DialogFooter>
             <Button variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancelar</Button>
             <Button onClick={handleSubmit} disabled={loading}>{loading ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmDialog.open} onOpenChange={(o) => setConfirmDialog((prev) => ({ ...prev, open: o }))}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Confirmar ação</DialogTitle></DialogHeader>
+          <p className="text-sm">Deseja {labels[confirmDialog.type]} {selected.size} item(ns)?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDialog({ type: "", open: false })}>Cancelar</Button>
+            <Button variant="destructive" onClick={runAction} disabled={loading}>{loading ? "Processando..." : "Confirmar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

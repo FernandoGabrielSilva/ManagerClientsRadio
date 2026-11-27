@@ -183,7 +183,7 @@ async function runImportClients(jobId: string, userId: string, role: string | un
   try {
     const safeRows = Array.isArray(rows) ? rows.slice(0, 500) : [];
     await markJobRunning(jobId, safeRows.length);
-    const existing = await prisma.client.findMany({ where: { userId } });
+    const existing = await prisma.client.findMany({ where: { userId, deletedAt: null } });
     const seen = new Set(existing.map(existingClientKey));
     let count = 0, skipped = 0;
     for (let i = 0; i < safeRows.length; i++) {
@@ -192,6 +192,25 @@ async function runImportClients(jobId: string, userId: string, role: string | un
       const key = clientImportKey(r);
       if (seen.has(key)) { skipped++; await markJobProgress(jobId, i + 1, safeRows.length, `Pulando duplicado ${i + 1}/${safeRows.length}`); continue; }
       const name = String(r.name ?? r["Cliente / anunciante"] ?? r.Nome ?? "Sem nome").slice(0, 200);
+      const existingByName = await prisma.client.findFirst({ where: { userId, deletedAt: null, name } });
+      if (existingByName) {
+        await prisma.client.update({ where: { id: existingByName.id }, data: {
+          phone: r.phone ?? r.WhatsApp ?? r.Telefone ?? existingByName.phone,
+          email: r.email ?? r.Email ?? existingByName.email,
+          contactName: r.contactName ?? r["Contato / decisor"] ?? r.Contato ?? existingByName.contactName,
+          notes: r.notes ?? r["Histórico / observações"] ?? r.Observações ?? existingByName.notes,
+          responsible: r.responsible ?? r["Responsável"] ?? existingByName.responsible,
+          commercialStatus: r.commercialStatus ?? r["Situação comercial"] ?? existingByName.commercialStatus,
+          contactType: r.contactType ?? r["Tipo de contato"] ?? existingByName.contactType,
+          nextAction: r.nextAction ?? r["Próxima ação"] ?? existingByName.nextAction,
+          nextActionDate: toDateValue(r.nextActionDate ?? r["Data próxima ação"]) ?? existingByName.nextActionDate,
+          contractValue: toNumberValue(r.contractValue ?? r["Valor proposto (R$)"]) ?? existingByName.contractValue,
+          lastContactAt: toDateValue(r.lastContactAt ?? r["Último contato"]) ?? existingByName.lastContactAt,
+        }});
+        seen.add(key); count++;
+        await markJobProgress(jobId, i + 1, safeRows.length, `Atualizando ${i + 1}/${safeRows.length}`);
+        continue;
+      }
       await prisma.client.create({ data: {
         userId, vendorId: userId, name,
         phone: r.phone ?? r.WhatsApp ?? r.Telefone ?? null,

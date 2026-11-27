@@ -51,7 +51,7 @@ async function runImportWorkbook(jobId: string, userId: string, sheets: SheetMat
     let eventsCreated = 0;
     let eventsSkipped = 0;
 
-    const existingClients = await prisma.client.findMany({ where: { userId } });
+    const existingClients = await prisma.client.findMany({ where: { userId, deletedAt: null } });
     const clientMap = new Map(existingClients.map((client) => [normalizeName(client.name), client]));
 
     for (const client of parsedClients) {
@@ -114,7 +114,7 @@ async function runImportWorkbook(jobId: string, userId: string, sheets: SheetMat
       historyClientIds.add(stored.id);
     }
 
-    const existingContracts = await prisma.contract.findMany({ where: { vendorId: userId } });
+    const existingContracts = await prisma.contract.findMany({ where: { vendorId: userId, deletedAt: null } });
     const contractMap = new Map<string, (typeof existingContracts)[number]>();
     for (const contract of existingContracts) {
       const key = contract.number

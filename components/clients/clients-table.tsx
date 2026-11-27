@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SortFilter } from "@/components/ui/sort-filter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { nextContactDate, formatDate, weekdayLabel } from "@/lib/date-utils";
 import { isContactOverdue } from "@/lib/date-utils";
@@ -23,6 +24,7 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [vendorFilter, setVendorFilter] = useState("all");
+  const [sort, setSort] = useState("name|asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ type: string; open: boolean }>({ type: "", open: false });
   const [loading, setLoading] = useState(false);
@@ -34,13 +36,23 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
   const statuses = useMemo(() => Array.from(new Set(clients.map((c) => (c.commercialStatus ?? c.contractStatus) as string).filter(Boolean))), [clients]);
   const vendors = useMemo(() => Array.from(new Set(clients.map((c) => (c.responsible ?? c.vendor?.name ?? "") as string).filter(Boolean))), [clients]);
 
-  const filtered = clients.filter((c) => {
-    const q = query.trim().toLowerCase();
-    if (q && ![c.name, c.responsible, c.commercialStatus, c.contactName, c.phone, c.email].some((v) => String(v ?? "").toLowerCase().includes(q))) return false;
-    if (statusFilter !== "all" && (c.commercialStatus ?? c.contractStatus) !== statusFilter) return false;
-    if (vendorFilter !== "all" && (c.responsible ?? c.vendor?.name) !== vendorFilter) return false;
-    return true;
-  });
+  const filtered = clients
+    .filter((c) => {
+      const q = query.trim().toLowerCase();
+      if (q && ![c.name, c.responsible, c.commercialStatus, c.contactName, c.phone, c.email].some((v) => String(v ?? "").toLowerCase().includes(q))) return false;
+      if (statusFilter !== "all" && (c.commercialStatus ?? c.contractStatus) !== statusFilter) return false;
+      if (vendorFilter !== "all" && (c.responsible ?? c.vendor?.name) !== vendorFilter) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const [field, dir] = sort.split("|");
+      let cmp = 0;
+      if (field === "lastContact") cmp = new Date(a.lastContactAt ?? 0).getTime() - new Date(b.lastContactAt ?? 0).getTime();
+      else if (field === "nextAction") cmp = new Date(a.nextActionDate ?? 0).getTime() - new Date(b.nextActionDate ?? 0).getTime();
+      else if (field === "value") cmp = (a.contractValue ?? 0) - (b.contractValue ?? 0);
+      else cmp = a.name.localeCompare(b.name);
+      return dir === "desc" ? -cmp : cmp;
+    });
 
   useEffect(() => { setPage(1); }, [query, statusFilter, vendorFilter]);
 
@@ -142,6 +154,17 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
             {vendors.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
           </SelectContent>
         </Select>
+        <SortFilter
+          value={sort}
+          onChange={(v) => setSort(v ?? "name|asc")}
+          fields={[
+            { value: "name", label: "Nome" },
+            { value: "lastContact", label: "Último contato" },
+            { value: "nextAction", label: "Próxima ação" },
+            { value: "value", label: "Valor proposto" },
+          ]}
+          triggerLabel="Ordenar"
+        />
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>
