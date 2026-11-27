@@ -271,12 +271,7 @@ export function RemindersView({
                 <Button size="sm" variant="destructive" onClick={() => setConfirmDialog({ type: "delete", open: true })}>Apagar</Button>
               </>
             )}
-            {view === "trash" && (
-              <>
-                <Button size="sm" variant="outline" onClick={() => setConfirmDialog({ type: "restore", open: true })}>Restaurar</Button>
-                <Button size="sm" variant="destructive" onClick={() => setConfirmDialog({ type: "purge", open: true })}>Excluir permanentemente</Button>
-              </>
-            )}
+
           </div>
         )}
       </div>
@@ -287,7 +282,6 @@ export function RemindersView({
         {[
           { key: "active", label: "Ativos" },
           { key: "archived", label: "Arquivados" },
-          { key: "trash", label: "Lixeira" },
         ].map((t) => (
           <Link key={t.key} href={`/reminders?view=${t.key}`} className={`flex-1 sm:flex-none text-center px-3 py-1.5 text-sm rounded-md ${view === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
             {t.label}
