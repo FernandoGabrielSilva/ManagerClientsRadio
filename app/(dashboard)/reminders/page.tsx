@@ -21,7 +21,7 @@ export default async function RemindersPage({ searchParams }: { searchParams: Pr
   const [reminders, allReminders, clients] = await Promise.all([
     prisma.reminder.findMany({ where, include: { client: true }, orderBy: { dueDate: "asc" } }),
     prisma.reminder.findMany({ where: baseWhere, include: { client: true }, orderBy: { dueDate: "asc" } }),
-    prisma.client.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.client.findMany({ where: { deletedAt: null, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   return (
     <div className="space-y-6">
