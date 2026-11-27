@@ -57,6 +57,51 @@ export async function createContractAction(data: z.infer<typeof contractSchema>)
   return { success: true };
 }
 
+export async function updateContractAction(id: string, data: z.infer<typeof contractSchema>) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Não autenticado");
+  const userId = session.user.id as string;
+  const role = (session.user as { role?: string }).role;
+  const parsed = contractSchema.safeParse(data);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  const d = parsed.data;
+  const where: Prisma.ContractWhereInput = { id };
+  if (role !== "admin") where.vendorId = userId;
+  const existing = await prisma.contract.findFirst({ where, select: { id: true } });
+  if (!existing) return { error: "Contrato não encontrado" };
+  const startDate = new Date(d.startDate);
+  const endDate = d.endDate
+    ? new Date(d.endDate)
+    : new Date(startDate.getFullYear(), startDate.getMonth() + (d.durationMonths ?? 1), startDate.getDate());
+  const days = Math.floor((endDate.getTime() - Date.now()) / 86400000);
+  await prisma.contract.update({
+    where: { id },
+    data: {
+      number: d.number?.trim() || null,
+      clientId: d.clientId,
+      sellerName: d.sellerName?.trim() || null,
+      program: d.program?.trim() || null,
+      startDate,
+      durationMonths: d.durationMonths ?? null,
+      endDate,
+      mediaType: d.mediaType?.trim() || "Spot 30s",
+      insertions: d.insertions ?? d.insertionsPerMonth ?? null,
+      insertionsPerDay: d.insertionsPerDay ?? null,
+      insertionsPerMonth: d.insertionsPerMonth ?? null,
+      timeSlots: d.timeSlots ?? null,
+      value: d.value ?? null,
+      totalValue: d.totalValue ?? null,
+      paymentInfo: d.paymentInfo ?? null,
+      status: days < 0 ? "expired" : days <= 30 ? "near_expiry" : "active",
+      notes: d.notes ?? null,
+    },
+  });
+  revalidatePath("/contracts");
+  revalidatePath(`/contracts/${id}`);
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
 export async function updateContractPdfAction(id: string, pdfBase64: string, pdfName: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Não autenticado");

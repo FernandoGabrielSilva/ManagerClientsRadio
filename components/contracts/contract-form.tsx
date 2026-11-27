@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { contractSchema } from "@/lib/validators";
-import { createContractAction } from "@/app/actions/contracts";
+import { createContractAction, updateContractAction } from "@/app/actions/contracts";
 import { getActiveClientsAction } from "@/app/actions/clients";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -17,7 +17,7 @@ import { z } from "zod";
 
 type Values = z.infer<typeof contractSchema>;
 
-export function ContractForm({ clients: initialClients, onSuccess, onCancel }: { clients: { id: string; name: string }[]; onSuccess?: () => void; onCancel?: () => void }) {
+export function ContractForm({ clients: initialClients, contract, onSuccess, onCancel }: { clients: { id: string; name: string }[]; contract?: any; onSuccess?: () => void; onCancel?: () => void }) {
   const router = useRouter();
   const [clients, setClients] = useState(initialClients);
   useEffect(() => {
@@ -25,17 +25,37 @@ export function ContractForm({ clients: initialClients, onSuccess, onCancel }: {
   }, []);
   const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<Values>({
     resolver: zodResolver(contractSchema),
-    defaultValues: {
-      mediaType: "Spot 30s",
-      startDate: new Date().toISOString().slice(0, 10),
-      durationMonths: 3,
-      endDate: "",
-      sellerName: "",
-    },
+    defaultValues: contract
+      ? {
+          number: contract.number ?? "",
+          clientId: contract.clientId ?? contract.client?.id ?? "",
+          sellerName: contract.sellerName ?? "",
+          program: contract.program ?? "",
+          startDate: contract.startDate ? new Date(contract.startDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+          durationMonths: contract.durationMonths ?? 3,
+          endDate: contract.endDate ? new Date(contract.endDate).toISOString().slice(0, 10) : "",
+          mediaType: contract.mediaType ?? "Spot 30s",
+          insertionsPerDay: contract.insertionsPerDay ?? null,
+          insertionsPerMonth: contract.insertionsPerMonth ?? contract.insertions ?? null,
+          timeSlots: contract.timeSlots ?? "",
+          value: contract.value ?? null,
+          totalValue: contract.totalValue ?? null,
+          paymentInfo: contract.paymentInfo ?? "",
+          notes: contract.notes ?? "",
+        }
+      : {
+          mediaType: "Spot 30s",
+          startDate: new Date().toISOString().slice(0, 10),
+          durationMonths: 3,
+          endDate: "",
+          sellerName: "",
+        },
   });
 
   async function onSubmit(values: Values) {
-    const res = await createContractAction(values);
+    const res = contract
+      ? await updateContractAction(contract.id, values)
+      : await createContractAction(values);
     if (res?.error) { toast.add({ title: "Erro", description: res.error }); return; }
     if (onSuccess) { onSuccess(); router.refresh(); return; }
     router.push("/contracts");
@@ -117,7 +137,7 @@ export function ContractForm({ clients: initialClients, onSuccess, onCancel }: {
       </div>
       <div className="flex flex-col-reverse sm:flex-row gap-2">
         <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => (onCancel ? onCancel() : router.back())}>Cancelar</Button>
-        <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>{isSubmitting ? "Salvando..." : "Salvar"}</Button>
+        <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>{isSubmitting ? "Salvando..." : (contract ? "Atualizar" : "Salvar")}</Button>
       </div>
     </form>
   );

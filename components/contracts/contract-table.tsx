@@ -14,10 +14,12 @@ import { formatDate } from "@/lib/date-utils";
 import { differenceInDays } from "date-fns";
 import { toast } from "@/components/ui/toast";
 import { archiveContractsAction, deleteContractsAction, restoreContractsAction, permanentDeleteContractsAction } from "@/app/actions/contracts";
+import { ContractForm } from "@/components/contracts/contract-form";
+import { Pencil } from "lucide-react";
 
 const PAGE_SIZE = 10;
 
-export function ContractTable({ contracts, view = "active" }: { contracts: any[]; view?: string }) {
+export function ContractTable({ contracts, clients = [], view = "active" }: { contracts: any[]; clients?: { id: string; name: string }[]; view?: string }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -25,6 +27,7 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
   const [sort, setSort] = useState("endDate|asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ type: string; open: boolean }>({ type: "", open: false });
+  const [editContract, setEditContract] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -211,6 +214,7 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
               <TableHead className="text-right">Término</TableHead>
               <TableHead className="text-right">Dias</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -243,6 +247,9 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
                   <TableCell className="text-right tabular-nums">{formatDate(c.endDate)}</TableCell>
                   <TableCell className="text-right tabular-nums">{days}</TableCell>
                   <TableCell><Badge variant={variant as any} className="font-normal">{status}</Badge></TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="ghost" onClick={() => setEditContract(c)}><Pencil className="h-4 w-4" /></Button>
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -263,6 +270,13 @@ export function ContractTable({ contracts, view = "active" }: { contracts: any[]
           </div>
         </div>
       )}
+
+      <Dialog open={!!editContract} onOpenChange={(o) => { if (!o) setEditContract(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Editar contrato</DialogTitle></DialogHeader>
+          {editContract && <ContractForm clients={clients} contract={editContract} onSuccess={() => setEditContract(null)} onCancel={() => setEditContract(null)} />}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirm.open} onOpenChange={(o) => setConfirm((prev) => ({ ...prev, open: o }))}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">

@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SortFilter } from "@/components/ui/sort-filter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ClientForm } from "@/components/clients/client-form";
+import { Pencil } from "lucide-react";
 import { nextContactDate, formatDate, weekdayLabel } from "@/lib/date-utils";
 import { isContactOverdue } from "@/lib/date-utils";
 import { toast } from "@/components/ui/toast";
@@ -19,7 +21,7 @@ type ClientRow = Client & { vendor?: { name: string | null } | null };
 
 const PAGE_SIZE = 10;
 
-export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[]; view?: string }) {
+export function ClientsTable({ clients, vendorList = [], view = "active" }: { clients: ClientRow[]; view?: string; vendorList?: { id: string; name: string | null }[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -27,6 +29,7 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
   const [sort, setSort] = useState("name|asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ type: string; open: boolean }>({ type: "", open: false });
+  const [editClient, setEditClient] = useState<ClientRow | null>(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -204,6 +207,7 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
               <TableHead>Vídeo</TableHead>
               <TableHead>Último contato</TableHead>
               <TableHead className="text-right">Próximo contato</TableHead>
+              <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -237,6 +241,9 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
                   {formatDate(nextContactDate(c.lastContactAt, c.contactFrequencyDays))}
                   {isContactOverdue(c.lastContactAt, c.contactFrequencyDays) && <span className="ml-2 text-destructive text-xs">atrasado</span>}
                 </TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                  <Button size="sm" variant="ghost" onClick={() => setEditClient(c)}><Pencil className="h-4 w-4" /></Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -256,6 +263,13 @@ export function ClientsTable({ clients, view = "active" }: { clients: ClientRow[
           </div>
         </div>
       )}
+
+      <Dialog open={!!editClient} onOpenChange={(o) => { if (!o) setEditClient(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Editar cliente</DialogTitle></DialogHeader>
+          {editClient && <ClientForm client={editClient} vendors={vendorList} onSuccess={() => setEditClient(null)} />}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirm.open} onOpenChange={(o) => setConfirm((prev) => ({ ...prev, open: o }))}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">

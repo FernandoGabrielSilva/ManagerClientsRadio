@@ -28,7 +28,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
   return (
     <div className="space-y-4">
       <ContractsToolbar contracts={contracts as any} exportContracts={allContracts as any} clients={clients} view={view} />
-      <Card className="overflow-hidden"><CardContent className="p-0"><ContractTable contracts={contracts as any} view={view} /></CardContent></Card>
+      <Card className="overflow-hidden"><CardContent className="p-0"><ContractTable contracts={contracts as any} clients={clients} view={view} /></CardContent></Card>
     </div>
   );
 }

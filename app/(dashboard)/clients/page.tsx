@@ -28,7 +28,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-4">
       <ClientsToolbar clients={clients} exportClients={allClients} vendors={vendors} view={view} />
-      <Card className="overflow-hidden"><CardContent className="p-0"><ClientsTable clients={clients} view={view} /></CardContent></Card>
+      <Card className="overflow-hidden"><CardContent className="p-0"><ClientsTable clients={clients} vendorList={vendors} view={view} /></CardContent></Card>
     </div>
   );
 }
