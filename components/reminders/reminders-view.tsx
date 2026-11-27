@@ -324,7 +324,7 @@ export function RemindersView({
                   <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
                 </TableCell>
                 <TableCell className="font-medium">{r.title}</TableCell>
-                <TableCell className="text-muted-foreground">{r.client?.name ?? "—"}</TableCell>
+                <TableCell className="text-muted-foreground">{r.client?.name ?? "Cliente removido"}</TableCell>
                 <TableCell><Badge variant="outline" className="font-normal">{typeLabels[r.type] ?? r.type}</Badge></TableCell>
                 <TableCell className="tabular-nums">{formatDate(new Date(r.dueDate))}</TableCell>
                 <TableCell>{r.completed ? <Badge variant="secondary">Concluído</Badge> : <Badge>Pendente</Badge>}</TableCell>
