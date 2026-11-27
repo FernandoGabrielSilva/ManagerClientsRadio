@@ -48,6 +48,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
           contractStart: client.contractStart ? new Date(client.contractStart).toISOString().slice(0, 10) : null,
           contractEnd: client.contractEnd ? new Date(client.contractEnd).toISOString().slice(0, 10) : null,
           contractValue: client.contractValue,
+          contractTotalValue: client.contractTotalValue,
           notes: client.notes,
           lastVideoSentAt: client.lastVideoSentAt ? new Date(client.lastVideoSentAt).toISOString().slice(0, 10) : null,
           needsAdChange: client.needsAdChange,
@@ -147,8 +148,12 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Valor proposto (R$)</Label>
+            <Label>Valor mensal (R$)</Label>
             <Input type="number" step="0.01" {...register("contractValue", { valueAsNumber: true })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Valor total (R$)</Label>
+            <Input type="number" step="0.01" {...register("contractTotalValue", { valueAsNumber: true })} />
           </div>
 
         </div>

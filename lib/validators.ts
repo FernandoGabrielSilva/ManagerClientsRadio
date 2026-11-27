@@ -32,6 +32,7 @@ export const clientSchema = z.object({
   contractStart: z.string().optional().nullable(),
   contractEnd: z.string().optional().nullable(),
   contractValue: z.number().optional().nullable(),
+  contractTotalValue: z.number().optional().nullable(),
   notes: z.string().optional().nullable(),
   lastVideoSentAt: z.string().optional().nullable(),
   needsAdChange: z.boolean().optional(),

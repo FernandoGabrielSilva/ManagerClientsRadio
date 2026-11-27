@@ -1,0 +1,1 @@
+ALTER TABLE "Client" ADD COLUMN "contractTotalValue" DOUBLE PRECISION;

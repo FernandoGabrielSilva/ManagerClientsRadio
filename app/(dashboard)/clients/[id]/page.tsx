@@ -60,7 +60,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             <div><div className="text-xs text-muted-foreground">Telefone / WhatsApp</div><div className="font-medium">{client.phone ?? "—"}</div></div>
             <div><div className="text-xs text-muted-foreground">Situação comercial</div><div className="font-medium">{client.commercialStatus ?? client.contractStatus}</div></div>
             <div><div className="text-xs text-muted-foreground">Tipo de mídia ofertada</div><div className="font-medium">{client.offeredMediaType ?? "—"}</div></div>
-            <div><div className="text-xs text-muted-foreground">Valor proposto</div><div className="font-medium tabular-nums">{client.contractValue ?? "—"}</div></div>
+            <div><div className="text-xs text-muted-foreground">Valor mensal</div><div className="font-medium tabular-nums">{client.contractValue ?? "—"}</div></div>
+            <div><div className="text-xs text-muted-foreground">Valor total</div><div className="font-medium tabular-nums">{client.contractTotalValue ?? "—"}</div></div>
             <div><div className="text-xs text-muted-foreground">Último contato</div><div className="font-medium">{formatDate(client.lastContactAt)}</div></div>
             <div><div className="text-xs text-muted-foreground">Tipo de contato</div><div className="font-medium">{client.contactType ?? "—"}</div></div>
             <div><div className="text-xs text-muted-foreground">Próxima ação</div><div className="font-medium">{client.nextAction ?? "—"}</div></div>

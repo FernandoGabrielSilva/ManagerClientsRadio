@@ -145,6 +145,7 @@ model Client {
   contractStart        DateTime?
   contractEnd          DateTime?
   contractValue        Float?
+  contractTotalValue   Float?
   notes                String?         @db.Text
   lastVideoSentAt      DateTime?
   needsAdChange        Boolean         @default(false)
