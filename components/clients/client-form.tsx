@@ -135,12 +135,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
           </div>
           <div className="space-y-2">
             <Label>Tipo de mídia ofertada</Label>
-            <Select value={watch("offeredMediaType") ?? ""} onValueChange={(v: string | null) => setValue("offeredMediaType", v)}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>
-                {OPTION_LISTS.mediaTypes.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <Input {...register("offeredMediaType")} placeholder="Ex: Spot 30s + Testemunhal 60s" />
           </div>
           <div className="space-y-2">
             <Label>Situação comercial</Label>
@@ -227,10 +222,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
             <Label>Data próxima ação</Label>
             <Input type="date" {...register("nextActionDate")} />
           </div>
-          <div className="space-y-2">
-            <Label>Conferência de datas</Label>
-            <Input type="date" {...register("dateConference")} />
-          </div>
+
         </div>
       </section>
 
