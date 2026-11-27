@@ -40,6 +40,7 @@ export async function createClientAction(data: z.infer<typeof clientSchema>) {
       offeredMediaType: d.offeredMediaType ?? null,
       videoWeekday: d.videoWeekday,
       lastContactAt: d.lastContactAt ? new Date(d.lastContactAt) : null,
+      nextContactAt: d.nextContactAt ? new Date(d.nextContactAt) : null,
       contactFrequencyDays: d.contactFrequencyDays,
       contractStatus: d.contractStatus,
       contractStart: d.contractStart ? new Date(d.contractStart) : null,
@@ -86,6 +87,7 @@ export async function updateClientAction(id: string, data: z.infer<typeof client
       offeredMediaType: d.offeredMediaType ?? null,
       videoWeekday: d.videoWeekday,
       lastContactAt: d.lastContactAt ? new Date(d.lastContactAt) : null,
+      nextContactAt: d.nextContactAt ? new Date(d.nextContactAt) : null,
       contactFrequencyDays: d.contactFrequencyDays,
       contractStatus: d.contractStatus,
       contractStart: d.contractStart ? new Date(d.contractStart) : null,
@@ -185,6 +187,18 @@ export async function markContactedAction(id: string) {
   await prisma.client.update({
     where: { id, userId },
     data: { lastContactAt: new Date(), needsAdChange: true },
+  });
+  revalidatePath("/clients");
+  revalidatePath(`/clients/${id}`);
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function markNextContactDoneAction(id: string) {
+  const userId = await getUserId();
+  await prisma.client.update({
+    where: { id, userId },
+    data: { nextContactAt: new Date() },
   });
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);

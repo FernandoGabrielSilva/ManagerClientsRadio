@@ -141,6 +141,7 @@ model Client {
   nextActionDate       DateTime?
   dateConference       DateTime?
   lastContactAt        DateTime?
+  nextContactAt        DateTime?
   contactFrequencyDays Int             @default(14)
   contractStatus       ContractStatus  @default(active)
   contractStart        DateTime?

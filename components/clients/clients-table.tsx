@@ -12,11 +12,10 @@ import { SortFilter } from "@/components/ui/sort-filter";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/clients/client-form";
-import { Pencil } from "lucide-react";
-import { nextContactDate, formatDate, weekdayLabel } from "@/lib/date-utils";
-import { isContactOverdue } from "@/lib/date-utils";
+import { Pencil, CheckCircle2 } from "lucide-react";
+import { resolveNextContact, isNextContactOverdue, formatDate, weekdayLabel } from "@/lib/date-utils";
 import { toast } from "@/components/ui/toast";
-import { archiveClientsAction, deleteClientsAction, restoreClientsAction, permanentDeleteClientsAction } from "@/app/actions/clients";
+import { archiveClientsAction, deleteClientsAction, restoreClientsAction, permanentDeleteClientsAction, markNextContactDoneAction } from "@/app/actions/clients";
 import type { Client } from "@prisma/client";
 type ClientRow = Client & { vendor?: { name: string | null } | null };
 
@@ -31,11 +30,23 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
   const [confirm, setConfirm] = useState<{ type: string; open: boolean }>({ type: "", open: false });
   const [editClient, setEditClient] = useState<ClientRow | null>(null);
   const [loading, setLoading] = useState(false);
+  const [nextContactBusy, setNextContactBusy] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
   const longPressStart = useRef<{ x: number; y: number } | null>(null);
+
+  async function completeNextContact(id: string) {
+    setNextContactBusy(true);
+    try {
+      const res = await markNextContactDoneAction(id);
+      if (!res?.success) toast.add({ title: "Erro", description: "Não foi possível concluir o contato." });
+      else toast.add({ title: "Próximo contato", description: "Contato marcado como concluído." });
+    } finally {
+      setNextContactBusy(false);
+    }
+  }
 
   const statuses = useMemo(() => Array.from(new Set(clients.map((c) => (c.commercialStatus ?? c.contractStatus) as string).filter(Boolean))), [clients]);
   const vendors = useMemo(() => Array.from(new Set(clients.map((c) => (c.responsible ?? c.vendor?.name ?? "") as string).filter(Boolean))), [clients]);
@@ -238,9 +249,25 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
                 </TableCell>
                 <TableCell className="text-muted-foreground">{weekdayLabel(c.videoWeekday)}</TableCell>
                 <TableCell className="text-muted-foreground tabular-nums">{formatDate(c.lastContactAt)}</TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatDate(nextContactDate(c.lastContactAt, c.contactFrequencyDays))}
-                  {isContactOverdue(c.lastContactAt, c.contactFrequencyDays) && <span className="ml-2 text-destructive text-xs">atrasado</span>}
+                <TableCell
+                  className="text-right tabular-nums"
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  {formatDate(resolveNextContact(c))}
+                  {isNextContactOverdue(c) && <span className="ml-2 text-destructive text-xs">atrasado</span>}
+                  {isNextContactOverdue(c) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-1 h-7"
+                      disabled={nextContactBusy}
+                      onClick={async (e) => { e.stopPropagation(); await completeNextContact(c.id); }}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Concluir
+                    </Button>
+                  )}
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                   <Button size="sm" variant="ghost" onClick={() => setEditClient(c)}><Pencil className="h-4 w-4" /></Button>

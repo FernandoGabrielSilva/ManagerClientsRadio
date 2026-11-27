@@ -27,6 +27,7 @@ export const clientSchema = z.object({
   offeredMediaType: z.string().optional().nullable(),
   videoWeekday: z.number().int().min(0).max(127),
   lastContactAt: z.string().optional().nullable(),
+  nextContactAt: z.string().optional().nullable(),
   contactFrequencyDays: z.number().int().min(1).max(365),
   contractStatus: z.enum(["active", "paused", "ended", "negotiation"]),
   contractStart: z.string().optional().nullable(),

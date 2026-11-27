@@ -23,6 +23,18 @@ export function isContactOverdue(lastContact: Date | null, frequencyDays: number
   return isBefore(due, utcNowMidnight);
 }
 
+export function resolveNextContact(client: { lastContactAt: Date | null; contactFrequencyDays: number; nextContactAt: Date | null }): Date | null {
+  if (client.nextContactAt) return new Date(client.nextContactAt);
+  return nextContactDate(client.lastContactAt, client.contactFrequencyDays);
+}
+
+export function isNextContactOverdue(client: { lastContactAt: Date | null; contactFrequencyDays: number; nextContactAt: Date | null }, now = new Date()): boolean {
+  const next = resolveNextContact(client);
+  if (!next) return false;
+  const utcNowMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return next.getTime() < utcNowMidnight.getTime();
+}
+
 export function daysSinceContact(lastContact: Date | null, now = new Date()): number | null {
   if (!lastContact) return null;
   return differenceInDays(now, new Date(lastContact));

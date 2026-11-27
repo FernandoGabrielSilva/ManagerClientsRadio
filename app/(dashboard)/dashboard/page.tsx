@@ -1,7 +1,5 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { after } from "next/server";
-import { ensureClientContactEventsForUserInBackground, syncPendingGoogleEventsForUserInBackground } from "@/app/actions/events";
 import { prisma } from "@/lib/db";
 import {
   isContactOverdue,
@@ -85,6 +83,34 @@ export default async function DashboardPage() {
     (c: Client) => c.contractStatus === "active",
   ).length;
   const adChange = clients.filter((c: Client) => c.needsAdChange);
+
+  const now = new Date();
+  const todayUtc = new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+  );
+  const pendingDatedEvents = [
+    ...visitsToday.map((c: Client) => {
+      const actionLabel = c.nextAction ?? "Visita";
+      return {
+        id: `visit-${c.id}`,
+        title: `${actionLabel}: ${c.name}`,
+        start: new Date(c.nextActionDate as Date).toISOString(),
+        type: "contact" as const,
+        clientId: c.id,
+        clientName: c.name,
+        description: `${actionLabel} com ${c.name}.`,
+      };
+    }),
+    ...videoToday.map((c: Client) => ({
+      id: `video-${c.id}`,
+      title: `Enviar vídeo: ${c.name}`,
+      start: todayUtc.toISOString(),
+      type: "video" as const,
+      clientId: c.id,
+      clientName: c.name,
+      description: `Enviar vídeo para ${c.name}.`,
+    })),
+  ];
 
   const clientStatusCounts = clients.reduce<Record<string, number>>(
     (acc: Record<string, number>, c: Client) => {
@@ -192,6 +218,7 @@ export default async function DashboardPage() {
       <DashboardMiddle
         vendors={vendors as any}
         clients={calendarClients as any}
+        pendingEvents={pendingDatedEvents}
         pendingActions={
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-foreground/80">Ações pendentes</h2>

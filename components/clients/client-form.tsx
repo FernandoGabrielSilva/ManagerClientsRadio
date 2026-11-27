@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { WEEKDAYS, weekdayLabel } from "@/lib/date-utils";
+import { WEEKDAYS, weekdayLabel, nextContactDate } from "@/lib/date-utils";
 import { OPTION_LISTS } from "@/lib/spreadsheet";
 import { ChevronDown, User, Phone, Mail, MapPin, Briefcase, DollarSign, Calendar, MessageSquare, Tag } from "lucide-react";
 import { z } from "zod";
@@ -73,6 +73,11 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
           offeredMediaType: client.offeredMediaType,
           videoWeekday: client.videoWeekday ?? 0,
           lastContactAt: client.lastContactAt ? new Date(client.lastContactAt).toISOString().slice(0, 10) : null,
+          nextContactAt: client.nextContactAt
+            ? new Date(client.nextContactAt).toISOString().slice(0, 10)
+            : client.lastContactAt
+              ? nextContactDate(new Date(client.lastContactAt), client.contactFrequencyDays ?? 14).toISOString().slice(0, 10)
+              : null,
           contactFrequencyDays: client.contactFrequencyDays,
           contractStatus: client.contractStatus,
           contractStart: client.contractStart ? new Date(client.contractStart).toISOString().slice(0, 10) : null,
@@ -93,6 +98,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
       : {
           name: "",
           videoWeekday: 0,
+          nextContactAt: null,
           contactFrequencyDays: 14,
           contractStatus: "active",
           needsAdChange: false,
@@ -214,7 +220,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Último contato</Label>
-            <Input type="date" {...register("lastContactAt")} />
+            <Input type="date" value={watch("lastContactAt") ?? ""} onChange={(e) => setValue("lastContactAt", e.target.value || null)} />
           </div>
           <div className="space-y-2">
             <Label className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> Tipo de contato</Label>
@@ -254,6 +260,10 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
               </PopoverContent>
             </Popover>
           </div>
+        </div>
+        <div className="space-y-2 pt-2">
+          <Label className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Data do próximo contato</Label>
+          <Input type="date" value={watch("nextContactAt") ?? ""} onChange={(e) => setValue("nextContactAt", e.target.value || null)} />
         </div>
       </section>
 
