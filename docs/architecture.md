@@ -49,7 +49,7 @@ Páginas principais: `/dashboard`, `/clients`, `/clients/new`, `/clients/[id]`, 
 
 ## Funcionalidades compartilhadas
 
-- Eventos de contato automáticos (`ensureClientContactEventsForUser`).
+- Eventos automáticos de cliente (`ensureClientContactEventsForUser`): último contato, próximo contato, próxima ação, vídeo, vencimento e mudança de anúncio; `Event` é a fonte única do calendário/agenda/ações pendentes do dashboard.
 - Jobs em background para importação/sincronização; UI faz polling.
 - Google Calendar (opcional): criar/remover/sincronizar eventos.
 - Notificações in-app + navegador (service worker `/sw.js`).

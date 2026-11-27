@@ -8,20 +8,14 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ensureClientContactEventsForUser, deleteEventsForClients } from "./events";
 
-async function getUserId() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Não autenticado");
-  return session.user.id;
-}
-
 export async function createClientAction(data: z.infer<typeof clientSchema>) {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
+  const role = (session!.user as { role?: string }).role;
   const parsed = clientSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   const d = parsed.data;
-  const client = await prisma.client.create({
+  await prisma.client.create({
     data: {
       userId,
       vendorId: d.vendorId || null,
@@ -65,7 +59,9 @@ export async function createClientAction(data: z.infer<typeof clientSchema>) {
 }
 
 export async function updateClientAction(id: string, data: z.infer<typeof clientSchema>) {
-  const userId = await getUserId();
+  const session = await auth();
+  const userId = session!.user!.id as string;
+  const role = (session!.user as { role?: string }).role;
   const parsed = clientSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   const d = parsed.data;
@@ -106,6 +102,7 @@ export async function updateClientAction(id: string, data: z.infer<typeof client
       dateConference: d.dateConference ? new Date(d.dateConference) : null,
     },
   });
+  await ensureClientContactEventsForUser(userId, role);
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
   revalidatePath("/dashboard");
@@ -115,12 +112,13 @@ export async function updateClientAction(id: string, data: z.infer<typeof client
 export async function deleteClientAction(id: string) {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
+  const role = (session!.user as { role?: string }).role;
   const where: Prisma.ClientWhereInput = { id };
   if (role !== "admin") where.OR = [{ userId }, { vendorId: userId }];
   await prisma.client.updateMany({ where, data: { deletedAt: new Date(), archivedAt: null } });
   await deleteEventsForClients(userId, [id]);
   revalidatePath("/clients");
+  revalidatePath("/calendar");
   revalidatePath("/dashboard");
   return { success: true };
 }
@@ -128,23 +126,27 @@ export async function deleteClientAction(id: string) {
 export async function archiveClientsAction(ids: string[]) {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
+  const role = (session!.user as { role?: string }).role;
   const where: Prisma.ClientWhereInput = { id: { in: ids } };
   if (role !== "admin") where.OR = [{ userId }, { vendorId: userId }];
   await prisma.client.updateMany({ where, data: { archivedAt: new Date(), deletedAt: null } });
+  await deleteEventsForClients(userId, ids);
   revalidatePath("/clients");
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
 export async function deleteClientsAction(ids: string[]) {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
+  const role = (session!.user as { role?: string }).role;
   const where: Prisma.ClientWhereInput = { id: { in: ids } };
   if (role !== "admin") where.OR = [{ userId }, { vendorId: userId }];
   await prisma.client.updateMany({ where, data: { deletedAt: new Date(), archivedAt: null } });
   await deleteEventsForClients(userId, ids);
   revalidatePath("/clients");
+  revalidatePath("/calendar");
   revalidatePath("/dashboard");
   return { success: true };
 }
@@ -152,7 +154,7 @@ export async function deleteClientsAction(ids: string[]) {
 export async function restoreClientsAction(ids: string[]) {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
+  const role = (session!.user as { role?: string }).role;
   const where: Prisma.ClientWhereInput = { id: { in: ids } };
   if (role !== "admin") where.OR = [{ userId }, { vendorId: userId }];
   const toRestore = await prisma.client.findMany({ where: { ...where, deletedAt: { not: null } } });
@@ -163,6 +165,8 @@ export async function restoreClientsAction(ids: string[]) {
   }
   await ensureClientContactEventsForUser(userId, role);
   revalidatePath("/clients");
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -173,58 +177,78 @@ export async function unarchiveClientsAction(ids: string[]) {
 export async function permanentDeleteClientsAction(ids: string[]) {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
+  const role = (session!.user as { role?: string }).role;
   const where: Prisma.ClientWhereInput = { id: { in: ids } };
   if (role !== "admin") where.OR = [{ userId }, { vendorId: userId }];
   await deleteEventsForClients(userId, ids);
   await prisma.client.deleteMany({ where });
   revalidatePath("/clients");
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
 export async function markContactedAction(id: string) {
-  const userId = await getUserId();
+  const session = await auth();
+  const userId = session!.user!.id as string;
+  const role = (session!.user as { role?: string }).role;
   await prisma.client.update({
     where: { id, userId },
     data: { lastContactAt: new Date(), needsAdChange: true },
   });
+  await ensureClientContactEventsForUser(userId, role);
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
+  revalidatePath("/calendar");
   revalidatePath("/dashboard");
   return { success: true };
 }
 
 export async function markNextContactDoneAction(id: string) {
-  const userId = await getUserId();
+  const session = await auth();
+  const userId = session!.user!.id as string;
+  const role = (session!.user as { role?: string }).role;
   await prisma.client.update({
     where: { id, userId },
     data: { nextContactAt: new Date() },
   });
+  await ensureClientContactEventsForUser(userId, role);
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
+  revalidatePath("/calendar");
   revalidatePath("/dashboard");
   return { success: true };
 }
 
 export async function markVideoSentAction(id: string) {
-  const userId = await getUserId();
+  const session = await auth();
+  const userId = session!.user!.id as string;
+  const role = (session!.user as { role?: string }).role;
   await prisma.client.update({
     where: { id, userId },
     data: { lastVideoSentAt: new Date() },
   });
+  await ensureClientContactEventsForUser(userId, role);
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
 export async function toggleAdChangeAction(id: string, value: boolean) {
-  const userId = await getUserId();
+  const session = await auth();
+  const userId = session!.user!.id as string;
+  const role = (session!.user as { role?: string }).role;
   await prisma.client.update({
     where: { id, userId },
     data: { needsAdChange: value },
   });
+  await ensureClientContactEventsForUser(userId, role);
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 

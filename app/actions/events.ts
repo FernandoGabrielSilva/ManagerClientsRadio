@@ -4,8 +4,13 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { eventSchema } from "@/lib/validators";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar";
-import { formatDate, nextContactDate } from "@/lib/date-utils";
+import { formatDate, resolveNextContact } from "@/lib/date-utils";
+import {
+  MANAGED_CLIENT_EVENT_PREFIXES,
+  isManagedClientEventTitle,
+} from "@/lib/client-events";
 import { revalidatePath } from "next/cache";
+import type { EventType } from "@prisma/client";
 import { z } from "zod";
 
 async function getUserId() {
@@ -39,6 +44,41 @@ async function pushEventToGoogle(userId: string, event: { id: string; title: str
   }
 }
 
+async function removeGoogleEvent(
+  userId: string,
+  googleEventId: string,
+  user?: Awaited<ReturnType<typeof getGoogleUser>>,
+) {
+  const u = user ?? await getGoogleUser(userId);
+  if (!u?.googleCalendarConnected || !u.googleAccessToken) return;
+  try {
+    await deleteCalendarEvent(
+      u.googleAccessToken,
+      u.googleRefreshToken,
+      u.googleCalendarId || "primary",
+      googleEventId,
+    );
+  } catch (e) {
+    console.error("google delete error", e);
+  }
+}
+
+async function deleteEventsByIds(
+  userId: string,
+  events: { id: string; googleEventId: string | null }[],
+) {
+  if (events.length === 0) return;
+  const user = await getGoogleUser(userId);
+  for (const event of events) {
+    if (event.googleEventId) {
+      await removeGoogleEvent(userId, event.googleEventId, user);
+    }
+  }
+  await prisma.event.deleteMany({
+    where: { id: { in: events.map((event) => event.id) } },
+  });
+}
+
 async function deleteEventsForClientsInternal(userId: string, clientIds: string[]) {
   if (clientIds.length === 0) return;
   const user = await getGoogleUser(userId);
@@ -63,16 +103,26 @@ export async function deleteEventsForClients(userId: string, clientIds: string[]
   const sessionUserId = session.user.id as string;
   const role = (session.user as { role?: string }).role;
   if (role !== "admin" && sessionUserId !== userId) throw new Error("Sem permissão");
-  return deleteEventsForClientsInternal(userId, clientIds);
+  await deleteEventsForClientsInternal(userId, clientIds);
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
 }
 
-export async function ensureClientContactEventsForUser(userId: string, role?: string, opts?: { revalidate?: boolean }) {
+export async function ensureClientContactEventsForUser(
+  userId: string,
+  role?: string,
+  opts?: { revalidate?: boolean },
+) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Não autenticado");
   const sessionUserId = session.user.id as string;
   const sessionRole = (session.user as { role?: string }).role;
   if (sessionRole !== "admin" && sessionUserId !== userId) throw new Error("Sem permissão");
-  return ensureClientContactEventsForUserInternal(userId, sessionRole === "admin" ? role : sessionRole);
+  return ensureClientContactEventsForUserInternal(
+    userId,
+    sessionRole === "admin" ? role : sessionRole,
+    opts,
+  );
 }
 
 async function syncPendingGoogleEventsForUserInternal(userId: string) {
@@ -121,6 +171,7 @@ export async function createEventAction(data: z.infer<typeof eventSchema>) {
   });
   await pushEventToGoogle(userId, event);
   revalidatePath("/calendar");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -129,20 +180,11 @@ export async function deleteEventAction(id: string) {
   const event = await prisma.event.findFirst({ where: { id, userId } });
   if (!event) return { error: "Evento não encontrado" };
   if (event.googleEventId) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { googleCalendarConnected: true, googleAccessToken: true, googleRefreshToken: true, googleCalendarId: true },
-    });
-    if (user?.googleCalendarConnected && user.googleAccessToken) {
-      try {
-        await deleteCalendarEvent(user.googleAccessToken, user.googleRefreshToken, user.googleCalendarId || "primary", event.googleEventId);
-      } catch (e) {
-        console.error("google delete error", e);
-      }
-    }
+    await removeGoogleEvent(userId, event.googleEventId);
   }
   await prisma.event.delete({ where: { id } });
   revalidatePath("/calendar");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -150,9 +192,41 @@ export async function listEventsAction(start: string, end: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Não autenticado");
   const userId = session.user.id as string;
+  const role = (session.user as { role?: string }).role;
+  const scope =
+    role === "admin"
+      ? {
+          OR: [
+            { clientId: null },
+            { client: { deletedAt: null, archivedAt: null } },
+          ],
+        }
+      : {
+          OR: [
+            { userId, clientId: null },
+            {
+              client: {
+                userId,
+                deletedAt: null,
+                archivedAt: null,
+              },
+            },
+            {
+              client: {
+                vendorId: userId,
+                deletedAt: null,
+                archivedAt: null,
+              },
+            },
+          ],
+        };
   return prisma.event.findMany({
-    where: { userId, start: { gte: new Date(start), lte: new Date(end) }, OR: [{ clientId: null }, { client: { deletedAt: null, archivedAt: null } }] },
+    where: {
+      start: { gte: new Date(start), lte: new Date(end) },
+      ...scope,
+    },
     include: { client: true },
+    orderBy: { start: "asc" },
   });
 }
 
@@ -168,21 +242,85 @@ export async function ensureClientContactEventsAction() {
   return ensureClientContactEventsForUserInternal(userId, role);
 }
 
-async function upsertAutoEvent(userId: string, key: { clientId: string; type: "contact" | "contract_expiry"; start: Date; titlePrefix: string }, data: { title: string; description: string; start: Date; end: Date }) {
+function utcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function nextUtcDay(date: Date): Date {
+  return new Date(date.getTime() + 86400000);
+}
+
+async function upsertAutoEvent(
+  userId: string,
+  key: {
+    clientId: string;
+    type: EventType;
+    start: Date;
+    titlePrefix: string;
+    matchByStart?: boolean;
+  },
+  data: { title: string; description: string; start: Date; end: Date },
+): Promise<{ id: string; created: boolean }> {
   const existing = await prisma.event.findFirst({
-    where: { userId, clientId: key.clientId, type: key.type, start: key.start, title: { startsWith: key.titlePrefix } },
+    where: {
+      userId,
+      clientId: key.clientId,
+      type: key.type,
+      title: { startsWith: key.titlePrefix },
+      ...(key.matchByStart ? { start: key.start } : {}),
+    },
+    orderBy: { start: "asc" },
   });
+
   if (existing) {
-    if (existing.description !== data.description || existing.title !== data.title || existing.end?.getTime() !== data.end.getTime()) {
-      await prisma.event.update({ where: { id: existing.id }, data: { title: data.title, description: data.description, end: data.end } });
+    const changed =
+      existing.title !== data.title ||
+      existing.description !== data.description ||
+      existing.start.getTime() !== data.start.getTime() ||
+      existing.end?.getTime() !== data.end.getTime();
+    if (changed) {
+      if (existing.googleEventId) {
+        await removeGoogleEvent(userId, existing.googleEventId);
+      }
+      await prisma.event.update({
+        where: { id: existing.id },
+        data: { ...data, allDay: true, googleEventId: null },
+      });
+      await pushEventToGoogle(userId, { ...existing, ...data, id: existing.id });
     }
-    return false;
+    return { id: existing.id, created: false };
   }
+
   const event = await prisma.event.create({
-    data: { userId, clientId: key.clientId, type: key.type, title: data.title, description: data.description, start: data.start, end: data.end, allDay: true },
+    data: {
+      userId,
+      clientId: key.clientId,
+      type: key.type,
+      ...data,
+      allDay: true,
+    },
   });
   await pushEventToGoogle(userId, event);
-  return true;
+  return { id: event.id, created: true };
+}
+
+async function deleteAutoEventsExcept(
+  userId: string,
+  clientId: string,
+  keepIds: string[],
+) {
+  const events = await prisma.event.findMany({
+    where: {
+      userId,
+      clientId,
+      id: { notIn: keepIds },
+      OR: MANAGED_CLIENT_EVENT_PREFIXES.map((prefix) => ({
+        title: { startsWith: prefix },
+      })),
+    },
+    select: { id: true, googleEventId: true },
+  });
+  await deleteEventsByIds(userId, events);
 }
 
 async function ensureClientContactEventsForUserInternal(userId: string, role?: string, opts?: { revalidate?: boolean }) {
@@ -191,54 +329,184 @@ async function ensureClientContactEventsForUserInternal(userId: string, role?: s
     : { OR: [{ userId }, { vendorId: userId }], deletedAt: null, archivedAt: null };
   const clients = await prisma.client.findMany({
     where,
-    select: { id: true, name: true, lastContactAt: true, contactFrequencyDays: true, nextAction: true, nextActionDate: true, contracts: { where: { deletedAt: null, archivedAt: null }, select: { id: true, number: true, endDate: true } } },
+    select: {
+      id: true,
+      name: true,
+      lastContactAt: true,
+      nextContactAt: true,
+      contactFrequencyDays: true,
+      nextAction: true,
+      nextActionDate: true,
+      videoWeekday: true,
+      needsAdChange: true,
+      lastVideoSentAt: true,
+      contracts: {
+        where: { deletedAt: null, archivedAt: null },
+        select: { id: true, number: true, endDate: true },
+      },
+    },
   });
+  const todayUtc = utcDay(new Date());
+  const tomorrowUtc = nextUtcDay(todayUtc);
   let created = 0;
+
   for (const c of clients) {
+    const keepIds: string[] = [];
+
     if (c.lastContactAt) {
-      const last = new Date(c.lastContactAt);
-      const start = new Date(Date.UTC(last.getUTCFullYear(), last.getUTCMonth(), last.getUTCDate()));
-      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 1));
-      if (await upsertAutoEvent(userId, { clientId: c.id, type: "contact", start, titlePrefix: "Último contato:" }, {
+      const start = utcDay(new Date(c.lastContactAt));
+      const result = await upsertAutoEvent(userId, {
+        clientId: c.id,
+        type: "contact",
+        start,
+        titlePrefix: "Último contato:",
+      }, {
         title: `Último contato: ${c.name}`,
         description: `Último contato com ${c.name} em ${formatDate(start)}.`,
-        start, end,
-      })) created++;
+        start,
+        end: nextUtcDay(start),
+      });
+      keepIds.push(result.id);
+      if (result.created) created++;
     }
 
-    const next = nextContactDate(c.lastContactAt ? new Date(c.lastContactAt) : null, c.contactFrequencyDays ?? 14);
-    const nextStart = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth(), next.getUTCDate()));
-    const nextEnd = new Date(Date.UTC(nextStart.getUTCFullYear(), nextStart.getUTCMonth(), nextStart.getUTCDate() + 1));
-    if (await upsertAutoEvent(userId, { clientId: c.id, type: "contact", start: nextStart, titlePrefix: "Próximo contato:" }, {
-      title: `Próximo contato: ${c.name}`,
-      description: `Próximo contato com ${c.name} em ${formatDate(nextStart)}.`,
-      start: nextStart, end: nextEnd,
-    })) created++;
+    const next = resolveNextContact({
+      lastContactAt: c.lastContactAt,
+      contactFrequencyDays: c.contactFrequencyDays ?? 14,
+      nextContactAt: c.nextContactAt,
+    });
+    if (next) {
+      const nextStart = utcDay(next);
+      const result = await upsertAutoEvent(userId, {
+        clientId: c.id,
+        type: "contact",
+        start: nextStart,
+        titlePrefix: "Próximo contato:",
+      }, {
+        title: `Próximo contato: ${c.name}`,
+        description: `Próximo contato com ${c.name} em ${formatDate(nextStart)}.`,
+        start: nextStart,
+        end: nextUtcDay(nextStart),
+      });
+      keepIds.push(result.id);
+      if (result.created) created++;
+
+      if (nextStart.getTime() < todayUtc.getTime()) {
+        const overdue = await upsertAutoEvent(userId, {
+          clientId: c.id,
+          type: "contact",
+          start: todayUtc,
+          titlePrefix: "Contatar:",
+        }, {
+          title: `Contatar: ${c.name}`,
+          description: `Contato com ${c.name} atrasado desde ${formatDate(nextStart)}.`,
+          start: todayUtc,
+          end: tomorrowUtc,
+        });
+        keepIds.push(overdue.id);
+        if (overdue.created) created++;
+      }
+    }
 
     if (c.nextActionDate) {
-      const nd = new Date(c.nextActionDate);
-      const agendaStart = new Date(Date.UTC(nd.getUTCFullYear(), nd.getUTCMonth(), nd.getUTCDate()));
-      const agendaEnd = new Date(Date.UTC(agendaStart.getUTCFullYear(), agendaStart.getUTCMonth(), agendaStart.getUTCDate() + 1));
-      const actionLabel = c.nextAction ? c.nextAction : "Visita";
-      if (await upsertAutoEvent(userId, { clientId: c.id, type: "contact", start: agendaStart, titlePrefix: "Agenda:" }, {
-        title: `${actionLabel}: ${c.name}`,
+      const agendaStart = utcDay(new Date(c.nextActionDate));
+      const actionLabel = c.nextAction ?? "Visita";
+      const agenda = await upsertAutoEvent(userId, {
+        clientId: c.id,
+        type: "contact",
+        start: agendaStart,
+        titlePrefix: "Próxima ação:",
+      }, {
+        title: `Próxima ação: ${actionLabel} · ${c.name}`,
         description: `${actionLabel} com ${c.name} em ${formatDate(agendaStart)}.`,
-        start: agendaStart, end: agendaEnd,
-      })) created++;
+        start: agendaStart,
+        end: nextUtcDay(agendaStart),
+      });
+      keepIds.push(agenda.id);
+      if (agenda.created) created++;
+
+      const legacyEvents = await prisma.event.findMany({
+        where: {
+          userId,
+          clientId: c.id,
+          type: "contact",
+          start: agendaStart,
+          id: { notIn: keepIds },
+        },
+        select: { id: true, googleEventId: true, title: true },
+      });
+      await deleteEventsByIds(
+        userId,
+        legacyEvents
+          .filter((event) => !isManagedClientEventTitle(event.title))
+          .map(({ id, googleEventId }) => ({ id, googleEventId })),
+      );
     }
 
     for (const ct of c.contracts) {
-      const d = new Date(ct.endDate);
-      const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 1));
+      const start = utcDay(new Date(ct.endDate));
       const label = ct.number ? `Contrato ${ct.number}` : "Contrato";
-      if (await upsertAutoEvent(userId, { clientId: c.id, type: "contract_expiry", start, titlePrefix: `Vencimento ${label}:` }, {
+      const result = await upsertAutoEvent(userId, {
+        clientId: c.id,
+        type: "contract_expiry",
+        start,
+        titlePrefix: `Vencimento ${label}:`,
+      }, {
         title: `Vencimento ${label}: ${c.name}`,
         description: `Vencimento do ${label.toLowerCase()} de ${c.name} em ${formatDate(start)}.`,
-        start, end,
-      })) created++;
+        start,
+        end: nextUtcDay(start),
+      });
+      keepIds.push(result.id);
+      if (result.created) created++;
     }
+
+    const weekdayMask = c.videoWeekday ?? 0;
+    const lastVideoDay = c.lastVideoSentAt
+      ? utcDay(new Date(c.lastVideoSentAt)).getTime()
+      : null;
+    for (let offset = 0; offset < 7; offset++) {
+      const videoDate = new Date(todayUtc.getTime() + offset * 86400000);
+      if ((weekdayMask & (1 << videoDate.getUTCDay())) === 0) continue;
+      if (lastVideoDay === videoDate.getTime()) continue;
+      const result = await upsertAutoEvent(userId, {
+        clientId: c.id,
+        type: "video",
+        start: videoDate,
+        titlePrefix: "Enviar vídeo:",
+        matchByStart: true,
+      }, {
+        title: `Enviar vídeo: ${c.name}`,
+        description: `Enviar vídeo para ${c.name} em ${formatDate(videoDate)}.`,
+        start: videoDate,
+        end: nextUtcDay(videoDate),
+      });
+      keepIds.push(result.id);
+      if (result.created) created++;
+    }
+
+    if (c.needsAdChange) {
+      const result = await upsertAutoEvent(userId, {
+        clientId: c.id,
+        type: "custom",
+        start: todayUtc,
+        titlePrefix: "Sugerir mudança de anúncio:",
+      }, {
+        title: `Sugerir mudança de anúncio: ${c.name}`,
+        description: `${c.name} aguardando sugestão de mudança de anúncio.`,
+        start: todayUtc,
+        end: tomorrowUtc,
+      });
+      keepIds.push(result.id);
+      if (result.created) created++;
+    }
+
+    await deleteAutoEventsExcept(userId, c.id, keepIds);
   }
-  if (opts?.revalidate !== false) revalidatePath("/calendar");
+
+  if (opts?.revalidate !== false) {
+    revalidatePath("/calendar");
+    revalidatePath("/dashboard");
+  }
   return { success: true, created, total: clients.length };
 }

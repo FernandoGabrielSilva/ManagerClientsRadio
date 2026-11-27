@@ -39,7 +39,8 @@ Toolbar (`components/clients/clients-toolbar.tsx`, `components/contracts/contrac
 - Ações à direita: exportar Excel, exportar PDF (clientes), importar planilha, “Novo ...”.
 
 Tabela (`components/clients/clients-table.tsx`, `components/contracts/contract-table.tsx`):
-- Container `max-h-[420px] overflow-x-auto border rounded-md`.
+- Container `max-h-[420px] overflow-auto border rounded-md`, com `[&_[data-slot=table-container]]:overflow-x-visible` para manter um único container de scroll (barra horizontal sempre no limite visível da tabela).
+- Container rolável com `role="region"`, `aria-label` e `tabIndex={0}` para navegação por teclado.
 - `Table` com `min-w-[900px]` (clientes) / `min-w-[700px]` (contratos, lembretes).
 - Cabeçalho `bg-muted/40 hover:bg-muted/40`.
 - Linhas `border-b hover:bg-muted/50`, clique navega para detalhe.
@@ -115,6 +116,18 @@ Padrão-alvo (AlertDialog):
 - Jobs longos: `BackgroundJobStatus` com polling (topbar a cada 4s; status a cada 1,5s).
 - Evitar spinners soltos sem contexto.
 
+## Dashboard
+
+- Stats e seções em `space-y-6`; títulos de seção em `text-sm font-semibold text-foreground/80`.
+- Lembretes e contratos lado a lado em `grid-cols-1 lg:grid-cols-2 gap-4`.
+- Calendário, agenda do dia e ações pendentes usam somente eventos persistidos (`Event`), carregados por `listEventsAction`; não existe mais lista derivada em memória no dashboard.
+- Eventos de cliente obrigatórios no calendário/agenda: `Último contato:`, `Próximo contato:` e `Próxima ação:` (título vindo de `nextAction` + cliente).
+- Eventos gerados a partir de clientes têm prefixos estáveis em `lib/client-events.ts`; alterações em cliente regeram eventos via `ensureClientContactEventsForUser` e atualizam o dashboard pelo `syncKey`.
+- Ações pendentes exibem os eventos de hoje com link para o cliente; eventos automáticos não têm botão de exclusão (a origem é o cadastro do cliente).
+- Exclusão de evento personalizado usa `AlertDialog` + `router.refresh()`.
+- Filtro de prazo do card de contratos: `Select` igual ao da paginação (`ContractDaysFilter`), opções `5/10/15/30/60/90`, padrão `5`, aplicado via `?dias=` sem botão adicional.
+- Lista do card de contratos: `max-h-[360px] overflow-auto divide-y`, `role="region"`, `aria-label` e `tabIndex={0}`; linhas com PI, cliente e badge de dias restantes.
+
 ## Empty states
 
 - Bloco `border rounded-lg p-8/p-10 text-sm text-muted-foreground text-center`.
@@ -126,6 +139,9 @@ Padrão-alvo (AlertDialog):
 - `components/import-export.tsx`: `WorkbookImportButton` com `loading`.
 - Exportação: `lib/export-excel.ts`, `lib/export-workbook.ts`, `lib/export-template.ts`, `lib/export-*.ts`; PDF via `jspdf`.
 - Importação longa: `startImportWorkbookJobAction` + job em background + status no topbar.
+- Um único import usa as tabelas visíveis de `DASHBOARD & LEMBRETES` como fonte: visitas viram Clientes, alertas de renovação viram Contratos e `CALENDÁRIO DE VISITAS` vira Agenda.
+- As abas `CADASTRO DE CLIENTES`, `PROSPECÇÃO E VISITAS` e `CONTROLE DE CONTRATOS` são detalhamento/exportação; só são usadas como fallback se o dashboard não trouxer linhas.
+- Contratos sem cliente cadastrado criam cliente mínimo apenas para manter o vínculo.
 - Não criar exportador próprio por página; reutilizar o serviço global.
 
 ## Navegação e layout
@@ -162,8 +178,7 @@ Padrão-alvo (AlertDialog):
 
 ## Desvios conhecidos
 
-- `window.confirm` em `components/dashboard/dashboard-middle.tsx` (exclusão de evento) — substituir por `AlertDialog`/`Dialog`.
-- Confirmações destrutivas usam `Dialog` em vez de `AlertDialog`.
+- Confirmações destrutivas usam `Dialog` em vez de `AlertDialog` (exceto exclusão de evento no dashboard, já migrada).
 - Settings usa abas customizadas em vez de `Tabs`.
 - `ClientForm` não aceita `onCancel`; `ContractForm` aceita.
 - Lembretes usam `Input type="date"` em vez de `Calendar`/`Popover`.

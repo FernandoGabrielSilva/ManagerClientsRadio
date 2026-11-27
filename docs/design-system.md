@@ -95,7 +95,7 @@ Regra: usar sempre tokens semânticos (`bg-primary`, `text-muted-foreground`, `b
 - Main: `flex-1 p-4 md:p-6`; container `mx-auto w-full space-y-6`.
 - Página de lista: toolbar → `Card overflow-hidden` → `CardContent p-0` → tabela.
 - Página de detalhe: header com avatar/ícone + título/subtítulo + ações; grid de cards.
-- Dashboard: stats `grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4`; seções `space-y-3` com título `text-sm font-semibold text-foreground/80`.
+- Dashboard: stats `grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4`; seções `space-y-3` com título `text-sm font-semibold text-foreground/80`; lembretes/contratos em `grid-cols-1 lg:grid-cols-2 gap-4`; lista de contratos com filtro `Select` (padrão paginação) e scroll `max-h-[360px]`.
 
 ## Componentes visuais de referência
 
@@ -126,7 +126,7 @@ Regra: usar sempre tokens semânticos (`bg-primary`, `text-muted-foreground`, `b
 ## Tabelas
 
 - `Table` base: `w-full text-sm`, header `border-b`, row `border-b hover:bg-muted/50`.
-- Listas: container `max-h-[420px] overflow-x-auto border rounded-md`; tabela `min-w-[700px]` a `min-w-[900px]`.
+- Listas: container `max-h-[420px] overflow-auto border rounded-md`; tabela `min-w-[700px]` a `min-w-[900px]`; wrapper interno do `Table` neutralizado para um único container de scroll.
 - Cabeçalho de lista: `bg-muted/40 hover:bg-muted/40`.
 - Sem zebra; o destaque é hover e cabeçalho.
 - Números/datas: `tabular-nums`.
@@ -150,7 +150,7 @@ Regra: usar sempre tokens semânticos (`bg-primary`, `text-muted-foreground`, `b
 - Mobile-first; breakpoints `sm`, `md`, `lg`, `xl`.
 - Grids `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3/5`.
 - Toolbars `flex-col sm:flex-row`; botões `w-full sm:w-auto`.
-- Tabelas sempre `overflow-x-auto` + `min-w`.
+- Tabelas sempre container com scroll nos dois eixos + `min-w`.
 - Texto truncado com `min-w-0` + `truncate`.
 
 ## Páginas de referência

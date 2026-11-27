@@ -205,7 +205,12 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
         )}
       </div>
 
-      <div className="max-h-[420px] overflow-x-auto border rounded-md">
+      <div
+        className="max-h-[420px] overflow-auto border rounded-md [&_[data-slot=table-container]]:overflow-x-visible focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        role="region"
+        aria-label="Lista de clientes"
+        tabIndex={0}
+      >
         <Table className="min-w-[900px] w-full">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">

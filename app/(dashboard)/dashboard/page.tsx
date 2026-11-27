@@ -1,14 +1,16 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { daysSinceContact } from "@/lib/date-utils";
+import { diffDays } from "@/lib/spreadsheet";
 import {
-  isContactOverdue,
-  isContractExpiringSoon,
-  isVideoDueToday,
-  daysSinceContact,
-  formatDate,
-} from "@/lib/date-utils";
-import { diffDays, toDate } from "@/lib/spreadsheet";
+  CLIENT_EVENT_PREFIXES,
+  isManagedClientEventTitle,
+} from "@/lib/client-events";
+import {
+  ensureClientContactEventsForUser,
+  listEventsAction,
+} from "@/app/actions/events";
 import Link from "next/link";
 import {
   Video,
@@ -19,19 +21,56 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { CalendarView } from "@/components/calendar/calendar-view";
 import { DashboardReminders } from "@/components/dashboard/dashboard-reminders";
 import { DashboardMiddle } from "@/components/dashboard/dashboard-middle";
 import { Card, CardContent } from "@/components/ui/card";
-import type { Client, Contract, Notification } from "@prisma/client";
+import { Badge } from "@/components/ui/badge";
+import { ContractDaysFilter } from "@/components/dashboard/contract-days-filter";
+import type { Client, Contract } from "@prisma/client";
 
 type ContractWithClient = Contract & { client: Client };
 
-export default async function DashboardPage() {
+const CONTRACT_DAYS_OPTIONS = [5, 10, 15, 30, 60, 90] as const;
+const DEFAULT_CONTRACT_DAYS = 5;
+
+function formatPiNumber(number: string | null): string {
+  if (!number) return "PI —";
+  return `PI ${number.replace(/^PI\s*/i, "")}`;
+}
+
+function contractDaysLabel(endDate: Date): { label: string; className: string } {
+  const days = diffDays(endDate) ?? 0;
+  const plural = (value: number) => `${value} ${value === 1 ? "dia" : "dias"}`;
+  if (days < 0) {
+    return {
+      label: `Vencido há ${plural(Math.abs(days))}`,
+      className: "text-destructive",
+    };
+  }
+  if (days === 0) {
+    return { label: "Vence hoje", className: "text-amber-500" };
+  }
+  return {
+    label: `Faltam ${plural(days)}`,
+    className: days <= 7 ? "text-amber-500" : "text-muted-foreground",
+  };
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ dias?: string | string[] }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id as string;
-  const role = (session!.user as any).role;
+  const role = (session.user as { role?: string }).role;
+  const query = await searchParams;
+  const rawDays = Array.isArray(query.dias) ? query.dias[0] : query.dias;
+  const parsedDays = Number.parseInt(rawDays ?? "", 10);
+  const maxDays = CONTRACT_DAYS_OPTIONS.some((option) => option === parsedDays)
+    ? parsedDays
+    : DEFAULT_CONTRACT_DAYS;
   const where =
     role === "admin" ? { deletedAt: null, archivedAt: null } : { OR: [{ userId }, { vendorId: userId }], deletedAt: null, archivedAt: null };
   const clients: Client[] = await prisma.client.findMany({
@@ -45,122 +84,104 @@ export default async function DashboardPage() {
         : { vendorId: userId, deletedAt: null, archivedAt: null },
     include: { client: true },
   });
-  const notifications: Notification[] = await prisma.notification.findMany({
-    where: { userId, read: false },
-    orderBy: { createdAt: "desc" },
-    take: 6,
-  });
-  const vendors = await prisma.user.findMany({
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
-  const calendarClients = clients.map((c: Client) => ({
-    id: c.id,
-    name: c.name,
-    lastContactAt: c.lastContactAt,
-    contactFrequencyDays: c.contactFrequencyDays,
-    vendorId: c.vendorId,
-  }));
   const reminders = await prisma.reminder.findMany({
     where: role === "admin" ? { deletedAt: null } : { userId, deletedAt: null },
     orderBy: { dueDate: "asc" },
     take: 8,
   });
 
-  const videoToday = clients.filter((c: Client) =>
-    isVideoDueToday(c.videoWeekday),
-  );
-  const contactOverdue = clients.filter((c: Client) =>
-    isContactOverdue(c.lastContactAt, c.contactFrequencyDays),
-  );
-  const visitsToday = clients.filter(
-    (c: Client) => diffDays(toDate(c.nextActionDate)) === 0,
-  );
-  const expiring = clients.filter((c: Client) =>
-    isContractExpiringSoon(c.contractEnd, 30),
-  );
-  const activeCount = clients.filter(
-    (c: Client) => c.contractStatus === "active",
-  ).length;
-  const adChange = clients.filter((c: Client) => c.needsAdChange);
-
   const now = new Date();
   const todayUtc = new Date(
     Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
   );
-  const pendingDatedEvents = [
-    ...visitsToday.map((c: Client) => {
-      const actionLabel = c.nextAction ?? "Visita";
-      return {
-        id: `visit-${c.id}`,
-        title: `${actionLabel}: ${c.name}`,
-        start: new Date(c.nextActionDate as Date).toISOString(),
-        type: "contact" as const,
-        clientId: c.id,
-        clientName: c.name,
-        description: `${actionLabel} com ${c.name}.`,
-      };
-    }),
-    ...videoToday.map((c: Client) => ({
-      id: `video-${c.id}`,
-      title: `Enviar vídeo: ${c.name}`,
-      start: todayUtc.toISOString(),
-      type: "video" as const,
-      clientId: c.id,
-      clientName: c.name,
-      description: `Enviar vídeo para ${c.name}.`,
-    })),
-  ];
-
-  const clientStatusCounts = clients.reduce<Record<string, number>>(
-    (acc: Record<string, number>, c: Client) => {
-      const key = c.commercialStatus ?? c.contractStatus ?? "Sem status";
-      acc[key] = (acc[key] ?? 0) + 1;
-      return acc;
-    },
-    {},
-  );
-  const contractStatusCounts = contracts.reduce<Record<string, number>>(
-    (acc: Record<string, number>, c: ContractWithClient) => {
-      const days = Math.floor(
-        (new Date(c.endDate).getTime() - Date.now()) / 86400000,
-      );
-      const key =
-        days < 0 ? "Vencido" : days <= 30 ? "Perto de Vencer" : "Ativo";
-      acc[key] = (acc[key] ?? 0) + 1;
-      return acc;
-    },
-    {},
-  );
-  const mediaTypeCounts = contracts.reduce<Record<string, number>>(
-    (acc: Record<string, number>, c: ContractWithClient) => {
-      const key = c.mediaType ?? "outro";
-      acc[key] = (acc[key] ?? 0) + 1;
-      return acc;
-    },
-    {},
-  );
-  const totalValue = contracts.reduce(
-    (s: number, c: ContractWithClient) => s + (c.value ?? 0),
+  const latestSourceUpdate = Math.max(
+    ...clients.map((c: Client) => c.updatedAt.getTime()),
+    ...contracts.map((c: ContractWithClient) => c.updatedAt.getTime()),
     0,
   );
+  const latestManagedEvent = await prisma.event.findFirst({
+    where: {
+      userId,
+      OR: CLIENT_EVENT_PREFIXES.map((prefix) => ({
+        title: { startsWith: prefix },
+      })),
+    },
+    orderBy: { updatedAt: "desc" },
+    select: { updatedAt: true },
+  });
+  if (
+    !latestManagedEvent ||
+    latestManagedEvent.updatedAt.getTime() < latestSourceUpdate ||
+    latestManagedEvent.updatedAt.getTime() < todayUtc.getTime()
+  ) {
+    await ensureClientContactEventsForUser(userId, role, {
+      revalidate: false,
+    });
+  }
+
+  const todayEvents = await listEventsAction(
+    todayUtc.toISOString(),
+    new Date(todayUtc.getTime() + 86400000 - 1).toISOString(),
+  );
+  const pendingActionEvents = todayEvents.filter(
+    (event) => event.clientId && isManagedClientEventTitle(event.title),
+  );
+  const expiring = contracts
+    .filter((c: ContractWithClient) => {
+      const days = diffDays(c.endDate) ?? 0;
+      return days >= 0 && days <= maxDays;
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.endDate).getTime() - new Date(b.endDate).getTime(),
+    );
+  const activeCount = clients.filter(
+    (c: Client) => c.contractStatus === "active",
+  ).length;
+  const visitsTodayCount = pendingActionEvents.filter((event) =>
+    event.title.startsWith("Próxima ação:"),
+  ).length;
+  const videoTodayCount = pendingActionEvents.filter(
+    (event) => event.type === "video",
+  ).length;
+  const contactOverdueCount = pendingActionEvents.filter((event) =>
+    event.title.startsWith("Contatar:"),
+  ).length;
+  const syncKey = [
+    ...clients.map((c: Client) =>
+      [
+        c.id,
+        c.name,
+        c.lastContactAt?.getTime(),
+        c.nextContactAt?.getTime(),
+        c.contactFrequencyDays,
+        c.nextAction,
+        c.nextActionDate?.getTime(),
+        c.videoWeekday,
+        c.needsAdChange,
+      ].join(":"),
+    ),
+    ...contracts.map((c: ContractWithClient) =>
+      [c.id, c.number, new Date(c.endDate).getTime()].join(":"),
+    ),
+  ].join("|");
 
   const stats = [
     {
       label: "Visitas hoje",
-      value: visitsToday.length,
+      value: visitsTodayCount,
       icon: Phone,
       tone: "text-primary",
     },
     {
       label: "Vídeo hoje",
-      value: videoToday.length,
+      value: videoTodayCount,
       icon: Video,
       tone: "text-primary",
     },
     {
       label: "Contato atrasado",
-      value: contactOverdue.length,
+      value: contactOverdueCount,
       icon: Phone,
       tone: "text-destructive",
     },
@@ -216,46 +237,70 @@ export default async function DashboardPage() {
       </div>
 
       <DashboardMiddle
-        vendors={vendors as any}
-        clients={calendarClients as any}
-        pendingEvents={pendingDatedEvents}
+        syncKey={syncKey}
         pendingActions={
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-foreground/80">Ações pendentes</h2>
             <Card className="h-[360px]">
               <CardContent className="p-0 h-[360px] overflow-auto">
-                {visitsToday.length === 0 && videoToday.length === 0 && contactOverdue.length === 0 && adChange.length === 0 ? (
+                {pendingActionEvents.length === 0 ? (
                   <div className="p-8 text-sm text-muted-foreground text-center">Nenhuma ação pendente.</div>
                 ) : (
-                  <div className="max-h-[360px] overflow-auto divide-y">
-                    {visitsToday.map((c: Client) => (
-                      <Link key={`visit-${c.id}`} href={`/clients/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-sm transition-colors">
-                        <CalendarDays className="h-4 w-4 text-primary shrink-0" />
-                        <span className="min-w-0 flex-1 truncate">Visitar <span className="font-medium">{c.name}</span>{c.nextAction ? ` — ${c.nextAction}` : ""}</span>
-                        <span className="text-xs text-muted-foreground shrink-0 rounded-full bg-muted px-2 py-0.5">Hoje</span>
-                      </Link>
-                    ))}
-                    {videoToday.map((c: Client) => (
-                      <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-sm transition-colors">
-                        <Video className="h-4 w-4 text-primary shrink-0" />
-                        <span className="min-w-0 flex-1 truncate">Enviar vídeo para <span className="font-medium">{c.name}</span></span>
-                        <span className="text-xs text-muted-foreground shrink-0 rounded-full bg-muted px-2 py-0.5">Hoje</span>
-                      </Link>
-                    ))}
-                    {contactOverdue.map((c: Client) => (
-                      <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-sm transition-colors">
-                        <Phone className="h-4 w-4 text-destructive shrink-0" />
-                        <span className="min-w-0 flex-1 truncate">Contatar <span className="font-medium">{c.name}</span></span>
-                        <span className="text-xs text-muted-foreground shrink-0 rounded-full bg-muted px-2 py-0.5">há {daysSinceContact(c.lastContactAt)} dias</span>
-                      </Link>
-                    ))}
-                    {adChange.map((c: Client) => (
-                      <Link key={c.id} href={`/clients/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-sm transition-colors">
-                        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
-                        <span className="min-w-0 flex-1 truncate">Sugerir mudança de anúncio <span className="font-medium">{c.name}</span></span>
-                        <span className="text-xs text-muted-foreground shrink-0 rounded-full bg-muted px-2 py-0.5">pendente</span>
-                      </Link>
-                    ))}
+                  <div
+                    role="region"
+                    aria-label="Ações pendentes"
+                    tabIndex={0}
+                    className="max-h-[360px] divide-y overflow-auto"
+                  >
+                    {pendingActionEvents.map((event) => {
+                      const client = event.client;
+                      const overdue = event.title.startsWith("Contatar:");
+                      const adChangeAction = event.title.startsWith("Sugerir mudança de anúncio:");
+                      const video = event.type === "video";
+                      const Icon = overdue
+                        ? Phone
+                        : adChangeAction
+                          ? AlertTriangle
+                          : video
+                            ? Video
+                            : CalendarDays;
+                      const iconTone = overdue
+                        ? "text-destructive"
+                        : adChangeAction
+                          ? "text-amber-500"
+                          : "text-primary";
+                      const days = overdue
+                        ? daysSinceContact(client?.lastContactAt ?? null)
+                        : null;
+                      const badge = overdue
+                        ? days !== null
+                          ? `há ${days} dias`
+                          : "atrasado"
+                        : adChangeAction
+                          ? "pendente"
+                          : "Hoje";
+                      let label = event.title;
+                      if (overdue) label = `Contatar ${client?.name ?? "Cliente"}`;
+                      else if (adChangeAction) label = `Sugerir mudança de anúncio ${client?.name ?? "Cliente"}`;
+                      else if (video) label = `Enviar vídeo para ${client?.name ?? "Cliente"}`;
+                      else if (event.title.startsWith("Último contato:")) label = `Último contato com ${client?.name ?? "Cliente"}`;
+                      else if (event.title.startsWith("Próximo contato:")) label = `Próximo contato com ${client?.name ?? "Cliente"}`;
+                      else if (event.title.startsWith("Próxima ação:")) label = `Próxima ação: ${client?.nextAction ?? "Visita"} · ${client?.name ?? "Cliente"}`;
+
+                      return (
+                        <Link
+                          key={event.id}
+                          href={`/clients/${event.clientId}`}
+                          className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50"
+                        >
+                          <Icon className={`h-4 w-4 shrink-0 ${iconTone}`} />
+                          <span className="min-w-0 flex-1 truncate">{label}</span>
+                          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                            {badge}
+                          </span>
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -264,39 +309,65 @@ export default async function DashboardPage() {
         }
       />
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground/80">Lembretes</h2>
-        <Card>
-          <CardContent className="p-4">
-            <DashboardReminders reminders={reminders} />
-          </CardContent>
-        </Card>
-      </section>
-
-      {expiring.length > 0 && (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground/80">
-            Contratos a vencer
-          </h2>
+          <h2 className="text-sm font-semibold text-foreground/80">Lembretes</h2>
           <Card>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {expiring.map((c: Client) => (
-                  <div
-                    key={c.id}
-                    className="flex justify-between gap-3 px-5 py-3 text-sm"
-                  >
-                    <span className="font-medium truncate">{c.name}</span>
-                    <span className="text-muted-foreground tabular-nums shrink-0">
-                      {formatDate(c.contractEnd)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+            <CardContent className="p-4">
+              <DashboardReminders reminders={reminders} />
             </CardContent>
           </Card>
         </section>
-      )}
+
+        <section className="space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-sm font-semibold text-foreground/80">Contratos</h2>
+            <ContractDaysFilter days={maxDays} options={CONTRACT_DAYS_OPTIONS} />
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              {expiring.length === 0 ? (
+                <p className="p-8 text-sm text-muted-foreground text-center">
+                  Nenhum contrato vence em até {maxDays} dias.
+                </p>
+              ) : (
+                <div
+                  role="region"
+                  aria-label="Contratos próximos do vencimento"
+                  tabIndex={0}
+                  className="max-h-[360px] divide-y overflow-auto"
+                >
+                  {expiring.map((c: ContractWithClient) => {
+                    const days = contractDaysLabel(c.endDate);
+                    return (
+                      <Link
+                        key={c.id}
+                        href={`/contracts/${c.id}`}
+                        className="flex items-center justify-between gap-3 px-5 py-3 text-sm transition-colors hover:bg-muted/50"
+                      >
+                        <span className="min-w-0">
+                          <span className="block font-medium tabular-nums truncate">
+                            {formatPiNumber(c.number)}
+                          </span>
+                          <span className="block text-xs text-muted-foreground truncate">
+                            {c.client.name}
+                          </span>
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={`font-normal ${days.className}`}
+                        >
+                          {days.label}
+                        </Badge>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      </div>
     </div>
   );
 }

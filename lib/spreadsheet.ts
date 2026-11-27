@@ -10,6 +10,30 @@ export const SHEET_LABELS = {
   lists: "OPÇÕES E LISTAS",
 } as const;
 
+export const DASHBOARD_CLIENT_HEADERS = [
+  "Cliente / Anunciante",
+  "Contato / Decisor",
+  "WhatsApp",
+  "Vendedor",
+  "Situação",
+  "Próxima Ação",
+  "Valor Proposto",
+  "Data Agendada",
+  "Histórico / Resumo da Visita",
+];
+
+export const DASHBOARD_CONTRACT_HEADERS = [
+  "Nº PI / Contrato",
+  "Cliente / Anunciante",
+  "Vendedor",
+  "Formato Mídia",
+  "Término",
+  "Dias Restantes",
+  "Faixa de Alerta",
+  "Status Visual",
+  "Ação Recomendada",
+];
+
 export const CLIENT_HEADERS = [
   "Razão Social",
   "Nome Fantasia / Cliente",
@@ -261,8 +285,7 @@ export function findHeaderRow(rows: Matrix, expected: string[]): number {
   const wanted = expected.map(normalizeHeader);
   let bestIndex = -1;
   let bestScore = 0;
-  const limit = Math.min(rows.length, 20);
-  for (let i = 0; i < limit; i++) {
+  for (let i = 0; i < rows.length; i++) {
     const row = Array.isArray(rows[i]) ? rows[i] : [];
     const cells = row.map(normalizeHeader);
     const score = wanted.filter((w) => cells.includes(w)).length;
@@ -295,6 +318,26 @@ export function readSheet(sheets: SheetMatrices, token: string, expected: string
   const headerRow = findHeaderRow(matrix, expected);
   if (headerRow < 0) return [];
   return matrixToObjects(matrix, headerRow);
+}
+
+function readTableUntilBlank(sheets: SheetMatrices, token: string, expected: string[]): Record<string, unknown>[] {
+  const matrix = findSheet(sheets, token);
+  if (!matrix) return [];
+  const headerRow = findHeaderRow(matrix, expected);
+  if (headerRow < 0) return [];
+  const headers = (matrix[headerRow] ?? []).map((header) => toText(header) ?? "");
+  const rows: Record<string, unknown>[] = [];
+  for (let i = headerRow + 1; i < matrix.length; i++) {
+    const row = Array.isArray(matrix[i]) ? matrix[i] : [];
+    const firstValue = row[0];
+    if (firstValue == null || String(firstValue).trim() === "") break;
+    const record: Record<string, unknown> = {};
+    headers.forEach((header, index) => {
+      if (header) record[header] = row[index] ?? null;
+    });
+    if (Object.values(record).some((value) => value != null && String(value).trim() !== "")) rows.push(record);
+  }
+  return rows;
 }
 
 function cell(row: Record<string, unknown>, ...names: string[]): unknown {
@@ -460,7 +503,50 @@ function mergeClients(cadastro: ParsedClient, prospection: ParsedClient | undefi
   };
 }
 
+function buildClientFromDashboard(row: Record<string, unknown>): ParsedClient | null {
+  const name = toText(cell(row, "Cliente / Anunciante"));
+  if (!name) return null;
+  const commercialStatus = toText(cell(row, "Situação"));
+  return {
+    name,
+    legalName: null,
+    tradeName: name,
+    cnpj: null,
+    address: null,
+    phone: toText(cell(row, "WhatsApp")),
+    email: null,
+    contactName: toText(cell(row, "Contato / Decisor")),
+    contactRole: null,
+    responsible: toText(cell(row, "Vendedor")),
+    offeredMediaType: null,
+    lastContactAt: null,
+    nextAction: toText(cell(row, "Próxima Ação")),
+    contactFrequencyDays: 14,
+    nextActionDate: toDate(cell(row, "Data Agendada")),
+    commercialStatus,
+    contactType: null,
+    contractValue: toNumber(cell(row, "Valor Proposto")),
+    notes: toText(cell(row, "Histórico / Resumo da Visita")),
+    contractStatus: deriveContractStatus(commercialStatus),
+  };
+}
+
+export function parseDashboardClients(sheets: SheetMatrices): ParsedClient[] {
+  const rows = readTableUntilBlank(sheets, "dashboard", DASHBOARD_CLIENT_HEADERS);
+  const byName = new Map<string, ParsedClient>();
+  for (const row of rows) {
+    const parsed = buildClientFromDashboard(row);
+    if (!parsed) continue;
+    const key = normalizeName(parsed.name);
+    if (!byName.has(key)) byName.set(key, parsed);
+  }
+  return Array.from(byName.values());
+}
+
 export function parseClients(sheets: SheetMatrices): ParsedClient[] {
+  const dashboardClients = parseDashboardClients(sheets);
+  if (dashboardClients.length) return dashboardClients;
+
   const cadastroRows = readSheet(sheets, "cadastro", CLIENT_HEADERS);
   const prospectionRows = readSheet(sheets, "prospeccao", PROSPECTION_HEADERS);
 
@@ -485,7 +571,55 @@ export function parseClients(sheets: SheetMatrices): ParsedClient[] {
   return Array.from(byName.values());
 }
 
+function buildContractFromDashboard(row: Record<string, unknown>, today: Date): ParsedContract | null {
+  const clientName = toText(cell(row, "Cliente / Anunciante"));
+  if (!clientName) return null;
+
+  const rawNumber = toText(cell(row, "Nº PI / Contrato", "Número"));
+  const number = rawNumber && normalizeHeader(rawNumber) !== "pi" ? rawNumber : null;
+  const notes = toText(cell(row, "Ação Recomendada"));
+  const endDate = toDate(cell(row, "Término")) ?? today;
+  const startDate = addMonths(endDate, -1);
+  const visualStatus = normalizeHeader(toText(cell(row, "Status Visual")));
+  const cancelled = normalizeHeader(`${rawNumber ?? ""} ${notes ?? ""}`).includes("cancel") || visualStatus.includes("cancel");
+  const days = diffDays(endDate, today) ?? 0;
+  const status = cancelled || days < 0 ? "expired" : days <= 30 || visualStatus.includes("perto") ? "near_expiry" : "active";
+
+  return {
+    number,
+    clientName,
+    sellerName: toText(cell(row, "Vendedor")),
+    program: null,
+    startDate,
+    durationMonths: null,
+    endDate,
+    mediaType: toText(cell(row, "Formato Mídia")) ?? "Spot 30s",
+    insertionsPerDay: null,
+    insertionsPerMonth: null,
+    timeSlots: null,
+    value: null,
+    totalValue: null,
+    paymentInfo: null,
+    notes,
+    status,
+  };
+}
+
+export function parseDashboardContracts(sheets: SheetMatrices): ParsedContract[] {
+  const rows = readTableUntilBlank(sheets, "dashboard", DASHBOARD_CONTRACT_HEADERS);
+  const today = todayUtc();
+  const contracts: ParsedContract[] = [];
+  for (const row of rows) {
+    const parsed = buildContractFromDashboard(row, today);
+    if (parsed) contracts.push(parsed);
+  }
+  return contracts;
+}
+
 export function parseContracts(sheets: SheetMatrices): ParsedContract[] {
+  const dashboardContracts = parseDashboardContracts(sheets);
+  if (dashboardContracts.length) return dashboardContracts;
+
   const rows = readSheet(sheets, "controle", CONTRACT_HEADERS);
   const contracts: ParsedContract[] = [];
   const today = todayUtc();

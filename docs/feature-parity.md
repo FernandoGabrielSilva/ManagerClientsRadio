@@ -19,17 +19,16 @@ Documento de referência para garantir que módulos com funcionalidades semelhan
 
 ### Dashboard (`/dashboard`)
 - Stats: visitas hoje, vídeo hoje, contato atrasado, contratos a vencer, clientes ativos.
-- Calendário mensal + agenda do dia.
-- Ações pendentes (visitas, vídeos, contatos, mudança de anúncio).
-- Lembretes recentes.
-- Contratos a vencer.
-- Exclusão de evento/lembrete (hoje com `window.confirm` e `Dialog`).
+- Calendário mensal + agenda do dia alimentados pelos mesmos eventos persistidos dos clientes.
+- Ações pendentes (último contato, próximo contato, próxima ação, vídeos, contatos atrasados e mudança de anúncio) derivadas dos eventos de hoje.
+- Lembretes recentes ao lado dos contratos próximos do vencimento (PI, cliente e dias restantes), com filtro por quantidade de dias e lista rolável.
+- Exclusão de evento personalizado com `AlertDialog`; eventos automáticos dos clientes não são excluíveis manualmente.
 
 ### Clientes (`/clients`, `/clients/new`, `/clients/[id]`)
 - Lista com busca, filtros, sort, paginação, seleção em massa.
 - Visões ativos/arquivados.
 - Arquivar, excluir (soft delete), restaurar, excluir permanentemente.
-- Exportar Excel/PDF; importar planilha.
+- Exportar Excel/PDF; importar planilha completa (clientes/contratos/agenda a partir do dashboard).
 - Criar (página e dialog), editar (dialog).
 - Detalhe: avatar, dados, ações de contato/vídeo/anúncio, histórico de contato.
 - Formulário completo com seções e máscaras.
@@ -38,7 +37,7 @@ Documento de referência para garantir que módulos com funcionalidades semelhan
 - Lista com busca, filtros, sort, paginação, seleção em massa.
 - Visões ativos/arquivados.
 - Arquivar, excluir, restaurar, excluir permanentemente.
-- Exportar Excel; importar planilha.
+- Exportar Excel; importar planilha completa (contratos a partir do dashboard).
 - Criar via dialog (`/contracts/new` redireciona para `/contracts`).
 - Editar via dialog.
 - Detalhe em cards; upload de PDF.
@@ -90,7 +89,7 @@ Elementos comuns:
 - Barra de ações em massa quando `selected.size > 0`.
 - Confirmação destrutiva em diálogo.
 - Estado vazio explícito.
-- Tabela com `overflow-x-auto` e `min-w-[700–900px]`.
+- Tabela com container único de scroll (`overflow-auto`) e `min-w-[700–900px]`.
 - Badges de status com variantes.
 
 ## Regras de paridade
@@ -107,7 +106,6 @@ Elementos comuns:
 
 ## Desvios conhecidos (corrigir apenas quando o arquivo for tocado, com aprovação)
 
-- `window.confirm` usado na exclusão de evento no dashboard (`components/dashboard/dashboard-middle.tsx`) — substituir por `AlertDialog`/`Dialog`.
 - Configurações usam abas controladas por estado em vez de `Tabs` do shadcn.
 - Confirmações destrutivas ainda usam `Dialog`; o padrão-alvo é `AlertDialog`.
 - Contratos não têm página dedicada de criação (`/contracts/new` redireciona).
@@ -126,4 +124,4 @@ Elementos comuns:
 - Notificações in-app + navegador.
 - Integração Google Calendar.
 - Importação/exportação XLSX/PDF com modelo unificado.
-- Eventos de contato gerados automaticamente.
+- Eventos de clientes (último contato, próximo contato, próxima ação, vídeo, vencimento e mudança de anúncio) gerados/regenerados automaticamente.
