@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { listEventsAction, deleteEventAction } from "@/app/actions/events";
 import { formatDate } from "@/lib/date-utils";
 import { isSameDay, startOfMonth, endOfMonth } from "date-fns";
+import { Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 type Vendor = { id: string; name: string | null };
@@ -83,6 +84,9 @@ export function DashboardMiddle({
                     {e.description && <div className="text-xs text-muted-foreground break-words whitespace-pre-wrap">{e.description}</div>}
                   </div>
                   <Badge variant="outline" className={typeColor[e.type] ?? ""}>{e.type}</Badge>
+                  <Button size="sm" variant="ghost" onClick={async () => { if (confirm("Excluir evento?")) { await deleteEventAction(e.id); load(date); } }}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               ))}
             </div>

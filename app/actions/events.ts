@@ -191,7 +191,7 @@ async function ensureClientContactEventsForUserInternal(userId: string, role?: s
     : { OR: [{ userId }, { vendorId: userId }], deletedAt: null, archivedAt: null };
   const clients = await prisma.client.findMany({
     where,
-    select: { id: true, name: true, lastContactAt: true, contactFrequencyDays: true, contracts: { where: { deletedAt: null, archivedAt: null }, select: { id: true, number: true, endDate: true } } },
+    select: { id: true, name: true, lastContactAt: true, contactFrequencyDays: true, nextAction: true, nextActionDate: true, contracts: { where: { deletedAt: null, archivedAt: null }, select: { id: true, number: true, endDate: true } } },
   });
   let created = 0;
   for (const c of clients) {
@@ -214,6 +214,18 @@ async function ensureClientContactEventsForUserInternal(userId: string, role?: s
       description: `Próximo contato com ${c.name} em ${formatDate(nextStart)}.`,
       start: nextStart, end: nextEnd,
     })) created++;
+
+    if (c.nextActionDate) {
+      const nd = new Date(c.nextActionDate);
+      const agendaStart = new Date(Date.UTC(nd.getUTCFullYear(), nd.getUTCMonth(), nd.getUTCDate()));
+      const agendaEnd = new Date(Date.UTC(agendaStart.getUTCFullYear(), agendaStart.getUTCMonth(), agendaStart.getUTCDate() + 1));
+      const actionLabel = c.nextAction ? c.nextAction : "Visita";
+      if (await upsertAutoEvent(userId, { clientId: c.id, type: "contact", start: agendaStart, titlePrefix: "Agenda:" }, {
+        title: `${actionLabel}: ${c.name}`,
+        description: `${actionLabel} com ${c.name} em ${formatDate(agendaStart)}.`,
+        start: agendaStart, end: agendaEnd,
+      })) created++;
+    }
 
     for (const ct of c.contracts) {
       const d = new Date(ct.endDate);
