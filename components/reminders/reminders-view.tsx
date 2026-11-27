@@ -378,7 +378,7 @@ export function RemindersView({
             <div className="space-y-2">
               <Label>Tipo</Label>
               <Select value={form.type} onValueChange={(v: string | null) => setForm({ ...form, type: v ?? "custom" })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue>{typeLabels[form.type] ?? form.type}</SelectValue></SelectTrigger>
                 <SelectContent>
                   {types.map((t) => <SelectItem key={t} value={t}>{typeLabels[t] ?? t}</SelectItem>)}
                 </SelectContent>
@@ -387,7 +387,7 @@ export function RemindersView({
             <div className="space-y-2">
               <Label>Cliente</Label>
               <Select value={form.clientId} onValueChange={(v: string | null) => setForm({ ...form, clientId: v ?? "" })}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Selecione">{clients.find((c) => c.id === form.clientId)?.name ?? "Selecione"}</SelectValue></SelectTrigger>
                 <SelectContent>
                   {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
