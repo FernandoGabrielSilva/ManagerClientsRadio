@@ -35,7 +35,7 @@ export default async function DashboardPage() {
   const userId = session.user.id as string;
   const role = (session!.user as any).role;
   const where =
-    role === "admin" ? undefined : { OR: [{ userId }, { vendorId: userId }] };
+    role === "admin" ? { deletedAt: null, archivedAt: null } : { OR: [{ userId }, { vendorId: userId }], deletedAt: null, archivedAt: null };
   const clients: Client[] = await prisma.client.findMany({
     where,
     orderBy: { name: "asc" },
