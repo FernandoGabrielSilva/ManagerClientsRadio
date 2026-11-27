@@ -262,10 +262,10 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
                       variant="outline"
                       className="mt-1 h-7"
                       disabled={nextContactBusy}
+                      aria-label="Concluir próximo contato"
                       onClick={async (e) => { e.stopPropagation(); await completeNextContact(c.id); }}
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      Concluir
                     </Button>
                   )}
                 </TableCell>
