@@ -86,7 +86,7 @@ export function TrashView({ items }: { items: TrashItem[] }) {
       <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
         <Input placeholder="Pesquisar na lixeira..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-full sm:max-w-xs" />
         <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "all")}>
-          <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-40"><SelectValue>{typeFilter === "all" ? "Todos" : typeFilter === "client" ? "Clientes" : typeFilter === "contract" ? "Contratos" : "Lembretes"}</SelectValue></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="client">Clientes</SelectItem>
