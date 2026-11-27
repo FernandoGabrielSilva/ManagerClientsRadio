@@ -25,6 +25,7 @@ import {
   uncompleteReminderAction,
 } from "@/app/actions/reminders";
 import { formatDate } from "@/lib/date-utils";
+import { getActiveClientsAction } from "@/app/actions/clients";
 import { SortFilter } from "@/components/ui/sort-filter";
 
 type Reminder = {
@@ -60,6 +61,9 @@ export function RemindersView({
   view?: string;
 }) {
   const router = useRouter();
+  useEffect(() => {
+    getActiveClientsAction().then((c) => { if (Array.isArray(c) && c.length) setClientList(c); }).catch(() => {});
+  }, []);
   const source = allReminders ?? reminders;
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -74,6 +78,7 @@ export function RemindersView({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Reminder | null>(null);
   const [form, setForm] = useState({ title: "", message: "", dueDate: "", type: "custom", clientId: "" });
+  const [clientList, setClientList] = useState(clients);
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
@@ -387,9 +392,9 @@ export function RemindersView({
             <div className="space-y-2">
               <Label>Cliente</Label>
               <Select value={form.clientId} onValueChange={(v: string | null) => setForm({ ...form, clientId: v ?? "" })}>
-                <SelectTrigger><SelectValue placeholder="Selecione">{clients.find((c) => c.id === form.clientId)?.name ?? "Selecione"}</SelectValue></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Selecione">{clientList.find((c) => c.id === form.clientId)?.name ?? "Selecione"}</SelectValue></SelectTrigger>
                 <SelectContent>
-                  {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {clientList.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
