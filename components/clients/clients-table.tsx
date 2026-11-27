@@ -256,13 +256,11 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
                 >
                   {formatDate(resolveNextContact(c))}
                 </TableCell>
-                {isNextContactOverdue(c) && (
-                  <TableCell className="text-right">
-                    <span className="text-destructive text-xs">atrasado</span>
-                  </TableCell>
-                )}
-                {isNextContactOverdue(c) && (
-                  <TableCell className="text-right">
+                <TableCell className="text-right">
+                  {isNextContactOverdue(c) && <span className="text-destructive text-xs">atrasado</span>}
+                </TableCell>
+                <TableCell className="text-right">
+                  {isNextContactOverdue(c) && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -273,8 +271,8 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </Button>
-                  </TableCell>
-                )}
+                  )}
+                </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                   <Button size="sm" variant="ghost" onClick={() => setEditClient(c)}><Pencil className="h-4 w-4" /></Button>
                 </TableCell>
