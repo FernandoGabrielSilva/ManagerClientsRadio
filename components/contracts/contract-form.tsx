@@ -91,7 +91,7 @@ export function ContractForm({ clients: initialClients, contract, onSuccess, onC
           <Input {...register("sellerName")} placeholder="Nome do vendedor" />
         </div>
         <div className="space-y-2">
-          <Label>Programa / Faixa</Label>
+          <Label>Produto / Programa</Label>
           <Input {...register("program")} placeholder="Ex: Institucional / Ofertas" />
         </div>
         <div className="space-y-2">

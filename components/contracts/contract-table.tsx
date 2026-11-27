@@ -207,7 +207,7 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
               <TableHead>Número</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Vendedor</TableHead>
-              <TableHead>Programa</TableHead>
+              <TableHead>Produto / Programa</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead className="text-right">Valor</TableHead>
               <TableHead>Início</TableHead>

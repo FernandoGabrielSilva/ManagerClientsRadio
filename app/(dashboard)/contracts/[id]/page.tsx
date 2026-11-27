@@ -31,7 +31,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Cliente / Anunciante</CardTitle></CardHeader><CardContent>{contract.client?.name}</CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Vendedor Responsável</CardTitle></CardHeader><CardContent>{contract.sellerName ?? contract.vendor?.name ?? "—"}</CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Status</CardTitle></CardHeader><CardContent><Badge>{status}</Badge></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Programa / Faixa</CardTitle></CardHeader><CardContent>{contract.program ?? "—"}</CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Produto / Programa</CardTitle></CardHeader><CardContent>{contract.program ?? "—"}</CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Dias restantes</CardTitle></CardHeader><CardContent>{days}</CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Duração</CardTitle></CardHeader><CardContent>{contract.durationMonths ? `${contract.durationMonths} mês(es)` : "—"}</CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Início</CardTitle></CardHeader><CardContent>{formatDate(contract.startDate)}</CardContent></Card>
