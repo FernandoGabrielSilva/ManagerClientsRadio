@@ -10,7 +10,7 @@ import { buildWorkbookSheets } from "@/lib/export-workbook";
 import { exportStyledXlsx } from "@/lib/export-excel";
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
-import { Download, LayoutDashboard, FileSpreadsheet } from "lucide-react";
+import { LayoutDashboard, FileSpreadsheet } from "lucide-react";
 
 export function SpreadsheetToolbar() {
   const router = useRouter();

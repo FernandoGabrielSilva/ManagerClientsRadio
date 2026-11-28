@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { Prisma } from "@/generated/prisma/client";
+import { ContractStatus, Prisma, type Client } from "@/generated/prisma/client";
 import { clientSchema } from "@/lib/validators";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -255,7 +255,7 @@ export async function toggleAdChangeAction(id: string, value: boolean) {
 }
 
 
-function toDateValue(v: any): Date | null {
+function toDateValue(v: unknown): Date | null {
   if (v == null || v === "") return null;
   if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
   if (typeof v === "number") {
@@ -263,17 +263,27 @@ function toDateValue(v: any): Date | null {
     const d = new Date(ms);
     return isNaN(d.getTime()) ? null : d;
   }
-  const d = new Date(v);
+  if (typeof v === "boolean") return new Date(v ? 1 : 0);
+  const d = new Date(String(v));
   return isNaN(d.getTime()) ? null : d;
 }
 
 
-function toNumberValue(v: any): number | null {
+function toNumberValue(v: unknown): number | null {
   if (v == null || v === "") return null;
   if (typeof v === "number") return v;
   const cleaned = String(v).replace(/[^0-9,.-]/g, "").replace(",", ".");
   const n = Number(cleaned);
   return isNaN(n) ? null : n;
+}
+
+function toNullableText(v: unknown): string | null {
+  return v == null ? null : typeof v === "string" ? v : String(v);
+}
+
+function toContractStatus(v: unknown): ContractStatus {
+  const value = String(v ?? "");
+  return value === "paused" ? ContractStatus.paused : value === "ended" ? ContractStatus.ended : value === "negotiation" ? ContractStatus.negotiation : ContractStatus.active;
 }
 
 export async function getActiveClientsAction() {
@@ -327,7 +337,7 @@ function normalizeVideoFrequency(v: unknown) {
   return value === "monthly" || value === "mensal" ? "monthly" : "weekly";
 }
 
-function clientImportKey(r: Record<string, any>) {
+function clientImportKey(r: Record<string, unknown>) {
   const contractStatus = (["active", "paused", "ended", "negotiation"].includes(String(r.contractStatus)) ? String(r.contractStatus) : "active");
   return [
     normImportText(r.name ?? r["Cliente / anunciante"] ?? r.Nome ?? "Sem nome"),
@@ -350,7 +360,7 @@ function clientImportKey(r: Record<string, any>) {
   ].join("|");
 }
 
-function existingClientKey(c: any) {
+function existingClientKey(c: Client) {
   return [
     normImportText(c.name),
     normImportText(c.responsible),
@@ -372,11 +382,11 @@ function existingClientKey(c: any) {
   ].join("|");
 }
 
-export async function importClientsAction(rows: any[]) {
+export async function importClientsAction(rows: Record<string, unknown>[]) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Não autenticado");
   const userId = session.user.id as string;
-  const role = (session.user as any).role;
+  const role = (session.user as { role?: string }).role;
   const safeRows = Array.isArray(rows) ? rows.slice(0, 500) : [];
   const existing = await prisma.client.findMany({ where: { userId, deletedAt: null } });
   const seen = new Set(existing.map(existingClientKey));
@@ -392,24 +402,24 @@ export async function importClientsAction(rows: any[]) {
         userId,
         vendorId: userId,
         name,
-        legalName: r.legalName ?? r["Razão Social"] ?? null,
-        tradeName: r.tradeName ?? r["Nome Fantasia / Cliente"] ?? null,
-        cnpj: r.cnpj ?? r["CNPJ / CPF"] ?? null,
-        address: r.address ?? r["Endereço Completo"] ?? null,
-        phone: r.phone ?? r["Telefone / WhatsApp"] ?? r.WhatsApp ?? r.Telefone ?? null,
-        email: r.email ?? r.Email ?? null,
-        contactName: r.contactName ?? r["Contato Responsável"] ?? r["Contato / decisor"] ?? r.Contato ?? null,
-        contactRole: r.contactRole ?? r["Cargo / Setor"] ?? null,
-        offeredMediaType: r.offeredMediaType ?? r["Tipo de Mídia Ofertada"] ?? null,
+        legalName: toNullableText(r.legalName ?? r["Razão Social"] ?? null),
+        tradeName: toNullableText(r.tradeName ?? r["Nome Fantasia / Cliente"] ?? null),
+        cnpj: toNullableText(r.cnpj ?? r["CNPJ / CPF"] ?? null),
+        address: toNullableText(r.address ?? r["Endereço Completo"] ?? null),
+        phone: toNullableText(r.phone ?? r["Telefone / WhatsApp"] ?? r.WhatsApp ?? r.Telefone ?? null),
+        email: toNullableText(r.email ?? r.Email ?? null),
+        contactName: toNullableText(r.contactName ?? r["Contato Responsável"] ?? r["Contato / decisor"] ?? r.Contato ?? null),
+        contactRole: toNullableText(r.contactRole ?? r["Cargo / Setor"] ?? null),
+        offeredMediaType: toNullableText(r.offeredMediaType ?? r["Tipo de Mídia Ofertada"] ?? null),
         videoFrequency: normalizeVideoFrequency(r.videoFrequency ?? r["Frequência Vídeo"]),
         videoWeekday: Math.max(0, Math.min(127, Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1) || 1)),
         contactFrequencyDays: Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? r["Prazo Retorno (Dias)"] ?? 14) || 14)),
-        contractStatus: (["active","paused","ended","negotiation"].includes(String(r.contractStatus)) ? r.contractStatus : "active") as any,
-        notes: r.notes ?? r["Histórico de Contatos / Detalhes do PI"] ?? r["Histórico / observações"] ?? r.Observações ?? null,
-        responsible: r.responsible ?? r["Vendedor / Representante"] ?? r["Responsável"] ?? null,
-        commercialStatus: r.commercialStatus ?? r["Situação Comercial"] ?? r["Situação comercial"] ?? null,
-        contactType: r.contactType ?? r["Tipo de Contato"] ?? r["Tipo de contato"] ?? null,
-        nextAction: r.nextAction ?? r["Próxima Ação"] ?? r["Próxima ação"] ?? null,
+        contractStatus: toContractStatus(r.contractStatus),
+        notes: toNullableText(r.notes ?? r["Histórico de Contatos / Detalhes do PI"] ?? r["Histórico / observações"] ?? r.Observações ?? null),
+        responsible: toNullableText(r.responsible ?? r["Vendedor / Representante"] ?? r["Responsável"] ?? null),
+        commercialStatus: toNullableText(r.commercialStatus ?? r["Situação Comercial"] ?? r["Situação comercial"] ?? null),
+        contactType: toNullableText(r.contactType ?? r["Tipo de Contato"] ?? r["Tipo de contato"] ?? null),
+        nextAction: toNullableText(r.nextAction ?? r["Próxima Ação"] ?? r["Próxima ação"] ?? null),
         nextActionDate: toDateValue(r.nextActionDate ?? r["Data Próximo Retorno (Auto)"] ?? r["Data próxima ação"]),
         dateConference: toDateValue(r.dateConference ?? r["Conferência de datas"]),
         contractValue: toNumberValue(r.contractValue ?? r["Valor mensal (R$)"] ?? r["Valor Proposto (R$)"] ?? r["Valor proposto (R$)"]),

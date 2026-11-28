@@ -29,7 +29,12 @@ const thinBorder = {
   right: { style: "thin", color: { rgb: COLORS.grid } },
 };
 
-type StyledCell = XLSX.CellObject & { s?: CellStyle; z?: string };
+type StyledCell = Omit<XLSX.CellObject, "s" | "z"> & { s?: CellStyle; z?: string };
+
+type WorkSheetWithView = XLSX.WorkSheet & {
+  "!sheetView"?: { showGridLines: boolean };
+  sheetView?: { showGridLines: boolean };
+};
 
 function setCell(ws: XLSX.WorkSheet, r: number, c: number, value: unknown, style: CellStyle) {
   const addr = XLSX.utils.encode_cell({ r, c });
@@ -206,7 +211,7 @@ export function buildStyledSheet(opts: StyledSheetSpec): XLSX.WorkSheet {
       }
       setCell(ws, r, c, value, style);
       const addr2 = XLSX.utils.encode_cell({ r, c });
-      const cellObj = ws[addr2] as any;
+      const cellObj = ws[addr2] as StyledCell | undefined;
       const headerLower = String(headers[c] ?? "").toLowerCase();
       if (cellObj && value && (headerLower.includes("e-mail") || headerLower.includes("email") || headerLower.includes("site"))) {
         const url = headerLower.includes("site") ? String(value) : `mailto:${value}`;
@@ -234,8 +239,9 @@ export function buildStyledSheet(opts: StyledSheetSpec): XLSX.WorkSheet {
   ];
   (ws as XLSX.WorkSheet & { "!freeze"?: unknown })["!freeze"] = { xSplit: 0, ySplit: 4, topLeftCell: "A5", activePane: "bottomLeft", state: "frozen" };
   ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: headerRow, c: 0 }, e: { r: headerRow, c: colCount - 1 } }) };
-  (ws as any)["!sheetView"] = { showGridLines: false };
-  (ws as any).sheetView = { showGridLines: false };
+  const sheetWithView = ws as WorkSheetWithView;
+  sheetWithView["!sheetView"] = { showGridLines: false };
+  sheetWithView.sheetView = { showGridLines: false };
   return ws;
 }
 

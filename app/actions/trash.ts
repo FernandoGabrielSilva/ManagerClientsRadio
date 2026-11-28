@@ -1,10 +1,9 @@
 "use server";
 
-import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { restoreClientsAction, deleteClientsAction, permanentDeleteClientsAction } from "./clients";
-import { restoreContractsAction, deleteContractsAction, permanentDeleteContractsAction } from "./contracts";
-import { restoreRemindersAction, deleteRemindersAction, permanentDeleteRemindersAction } from "./reminders";
+import { restoreClientsAction, permanentDeleteClientsAction } from "./clients";
+import { restoreContractsAction, permanentDeleteContractsAction } from "./contracts";
+import { restoreRemindersAction, permanentDeleteRemindersAction } from "./reminders";
 
 export type TrashItemRef = { kind: "client" | "contract" | "reminder"; id: string };
 

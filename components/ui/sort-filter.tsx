@@ -1,8 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUpAZ, ArrowDownZA, Text, CalendarFold, ChartNoAxesGantt } from "lucide-react";
+import { ArrowUpAZ, ArrowDownZA, Text, ChartNoAxesGantt } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type SortField = { value: string; label: string; icon?: LucideIcon };

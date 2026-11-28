@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { z } from "zod";
+import type { Contract } from "@/generated/prisma/client";
 
 function formatCurrency(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -24,7 +25,7 @@ function formatCurrency(value: string) {
 
 type Values = z.infer<typeof contractSchema>;
 
-export function ContractForm({ clients: initialClients, contract, onSuccess, onCancel }: { clients: { id: string; name: string }[]; contract?: any; onSuccess?: () => void; onCancel?: () => void }) {
+export function ContractForm({ clients: initialClients, contract, onSuccess, onCancel }: { clients: { id: string; name: string }[]; contract?: Contract & { client?: { id: string } | null }; onSuccess?: () => void; onCancel?: () => void }) {
   const router = useRouter();
   const [clients, setClients] = useState(initialClients);
   useEffect(() => {
@@ -73,61 +74,64 @@ export function ContractForm({ clients: initialClients, contract, onSuccess, onC
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label>Nº Contrato / PI</Label>
-          <Input {...register("number")} placeholder="Ex: PI 18/2026" />
+          <Label htmlFor="number">Nº Contrato / PI</Label>
+          <Input id="number" {...register("number")} placeholder="Ex: PI 18/2026" />
         </div>
         <div className="space-y-2">
-          <Label>Cliente / Anunciante *</Label>
-          <Select value={watch("clientId")} onValueChange={(v: string | null) => setValue("clientId", v ?? "")}>
-            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+          <Label htmlFor="clientId">Cliente / Anunciante *</Label>
+          <Select value={watch("clientId") ?? ""} onValueChange={(v: string | null) => setValue("clientId", v ?? "")}>
+            <SelectTrigger id="clientId" aria-invalid={!!errors.clientId} aria-describedby={errors.clientId ? "clientId-error" : undefined}>
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
             <SelectContent>
               {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          {errors.clientId && <p className="text-sm text-destructive">{errors.clientId.message}</p>}
+          {errors.clientId && <p id="clientId-error" role="alert" className="text-sm text-destructive">{errors.clientId.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>Vendedor Responsável</Label>
-          <Input {...register("sellerName")} placeholder="Nome do vendedor" />
+          <Label htmlFor="sellerName">Vendedor Responsável</Label>
+          <Input id="sellerName" {...register("sellerName")} placeholder="Nome do vendedor" />
         </div>
         <div className="space-y-2">
-          <Label>Produto / Programa</Label>
-          <Input {...register("program")} placeholder="Ex: Institucional / Ofertas" />
+          <Label htmlFor="program">Produto / Programa</Label>
+          <Input id="program" {...register("program")} placeholder="Ex: Institucional / Ofertas" />
         </div>
         <div className="space-y-2">
-          <Label>Data de Início *</Label>
-          <Input type="date" {...register("startDate")} />
-          {errors.startDate && <p className="text-sm text-destructive">{errors.startDate.message}</p>}
+          <Label htmlFor="startDate">Data de Início *</Label>
+          <Input id="startDate" type="date" aria-invalid={!!errors.startDate} aria-describedby={errors.startDate ? "startDate-error" : undefined} {...register("startDate")} />
+          {errors.startDate && <p id="startDate-error" role="alert" className="text-sm text-destructive">{errors.startDate.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>Duração (meses)</Label>
-          <Input type="number" min={0} {...register("durationMonths", { valueAsNumber: true })} />
+          <Label htmlFor="durationMonths">Duração (meses)</Label>
+          <Input id="durationMonths" type="number" min={0} {...register("durationMonths", { valueAsNumber: true })} />
         </div>
         <div className="space-y-2">
-          <Label>Data de Término</Label>
-          <Input type="date" {...register("endDate")} />
+          <Label htmlFor="endDate">Data de Término</Label>
+          <Input id="endDate" type="date" {...register("endDate")} />
           <p className="text-xs text-muted-foreground">Deixe em branco para calcular pela duração.</p>
         </div>
         <div className="space-y-2">
-          <Label>Tipo de Mídia *</Label>
-          <Input {...register("mediaType")} placeholder="Ex: Spot 30s + Testemunhal 60s" />
-          {errors.mediaType && <p className="text-sm text-destructive">{errors.mediaType.message}</p>}
+          <Label htmlFor="mediaType">Tipo de Mídia *</Label>
+          <Input id="mediaType" aria-invalid={!!errors.mediaType} aria-describedby={errors.mediaType ? "mediaType-error" : undefined} {...register("mediaType")} placeholder="Ex: Spot 30s + Testemunhal 60s" />
+          {errors.mediaType && <p id="mediaType-error" role="alert" className="text-sm text-destructive">{errors.mediaType.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>Qtd. Inserções / Dia</Label>
-          <Input type="number" min={0} {...register("insertionsPerDay", { valueAsNumber: true })} />
+          <Label htmlFor="insertionsPerDay">Qtd. Inserções / Dia</Label>
+          <Input id="insertionsPerDay" type="number" min={0} {...register("insertionsPerDay", { valueAsNumber: true })} />
         </div>
         <div className="space-y-2">
-          <Label>Total Inserções / Mês</Label>
-          <Input type="number" min={0} {...register("insertionsPerMonth", { valueAsNumber: true })} />
+          <Label htmlFor="insertionsPerMonth">Total Inserções / Mês</Label>
+          <Input id="insertionsPerMonth" type="number" min={0} {...register("insertionsPerMonth", { valueAsNumber: true })} />
         </div>
         <div className="space-y-2">
-          <Label>Horários de Veiculação</Label>
-          <Input {...register("timeSlots")} placeholder="Ex: 08:00, 12:00, 18:00" />
+          <Label htmlFor="timeSlots">Horários de Veiculação</Label>
+          <Input id="timeSlots" {...register("timeSlots")} placeholder="Ex: 08:00, 12:00, 18:00" />
         </div>
         <div className="space-y-2">
-          <Label>Valor Mensal (R$)</Label>
+          <Label htmlFor="value">Valor Mensal (R$)</Label>
           <Input
+            id="value"
             value={watch("value") != null ? Number(watch("value")).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
             onChange={(e) => {
               const formatted = formatCurrency(e.target.value);
@@ -139,8 +143,9 @@ export function ContractForm({ clients: initialClients, contract, onSuccess, onC
           />
         </div>
         <div className="space-y-2">
-          <Label>Valor Total / Valor Bruto (R$)</Label>
+          <Label htmlFor="totalValue">Valor Total / Valor Bruto (R$)</Label>
           <Input
+            id="totalValue"
             value={watch("totalValue") != null ? Number(watch("totalValue")).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
             onChange={(e) => {
               const formatted = formatCurrency(e.target.value);
@@ -152,13 +157,13 @@ export function ContractForm({ clients: initialClients, contract, onSuccess, onC
           />
         </div>
         <div className="space-y-2 md:col-span-2">
-          <Label>Pagamento / Vencimento</Label>
-          <Input {...register("paymentInfo")} placeholder="Ex: Dia 19 de cada mês — Pix / Boleto" />
+          <Label htmlFor="paymentInfo">Pagamento / Vencimento</Label>
+          <Input id="paymentInfo" {...register("paymentInfo")} placeholder="Ex: Dia 19 de cada mês — Pix / Boleto" />
         </div>
       </div>
       <div className="space-y-2">
-        <Label>Observações de Veiculação</Label>
-        <Textarea rows={3} {...register("notes")} />
+        <Label htmlFor="notes">Observações de Veiculação</Label>
+        <Textarea id="notes" rows={3} {...register("notes")} />
       </div>
       <div className="flex flex-col-reverse sm:flex-row gap-2">
         <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => (onCancel ? onCancel() : router.back())}>Cancelar</Button>

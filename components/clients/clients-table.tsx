@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SortFilter } from "@/components/ui/sort-filter";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ClientForm } from "@/components/clients/client-form";
 import { Pencil, CheckCircle2 } from "lucide-react";
 import { resolveNextContact, isNextContactOverdue, formatDate, weekdayLabel } from "@/lib/date-utils";
@@ -30,7 +40,7 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
   const [confirm, setConfirm] = useState<{ type: string; open: boolean }>({ type: "", open: false });
   const [editClient, setEditClient] = useState<ClientRow | null>(null);
   const [loading, setLoading] = useState(false);
-  const [nextContactBusy, setNextContactBusy] = useState(false);
+  const [nextContactBusyId, setNextContactBusyId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -38,13 +48,18 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
   const longPressStart = useRef<{ x: number; y: number } | null>(null);
 
   async function completeNextContact(id: string) {
-    setNextContactBusy(true);
+    setNextContactBusyId(id);
     try {
       const res = await markNextContactDoneAction(id);
       if (!res?.success) toast.add({ title: "Erro", description: "Não foi possível concluir o contato." });
-      else toast.add({ title: "Próximo contato", description: "Contato marcado como concluído." });
+      else {
+        toast.add({ title: "Próximo contato", description: "Contato marcado como concluído." });
+        router.refresh();
+      }
+    } catch (error) {
+      toast.add({ title: "Erro", description: error instanceof Error ? error.message : "Erro inesperado." });
     } finally {
-      setNextContactBusy(false);
+      setNextContactBusyId(null);
     }
   }
 
@@ -69,8 +84,6 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
       return dir === "desc" ? -cmp : cmp;
     });
 
-  useEffect(() => { setPage(1); }, [query, statusFilter, vendorFilter]);
-
   if (clients.length === 0) {
     return <div className="border rounded-lg p-10 text-sm text-muted-foreground text-center">Nenhum cliente cadastrado.</div>;
   }
@@ -80,6 +93,7 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
   const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const allSelected = paged.length > 0 && paged.every((c) => selected.has(c.id));
+  const someSelected = paged.some((c) => selected.has(c.id)) && !allSelected;
 
   function toggleAll() {
     const next = new Set(selected);
@@ -122,7 +136,6 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
   function onRowPointerUp() { clearLongPress(); }
   function onRowClick(id: string) {
     if (longPressFired.current) { longPressFired.current = false; return; }
-    if (selected.size > 0) { toggle(id); return; }
     router.push(`/clients/${id}`);
   }
 
@@ -144,26 +157,38 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
       toast.add({ title: "Concluído" });
       setSelected(new Set());
       router.refresh();
-    } catch (e) {
-      toast.add({ title: "Erro", description: String(e) });
+    } catch (error) {
+      toast.add({ title: "Erro", description: error instanceof Error ? error.message : "Erro inesperado." });
+    } finally {
+      setLoading(false);
+      setConfirm({ type: "", open: false });
     }
-    setLoading(false);
-    setConfirm({ type: "", open: false });
   }
 
   return (
     <div className="p-4 space-y-3">
       <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
-        <Input placeholder="Pesquisar clientes..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-full sm:max-w-xs" />
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
-          <SelectTrigger className="w-full sm:w-44"><SelectValue>{(v: any) => v === "all" || v == null ? "Todas" : v}</SelectValue></SelectTrigger>
+        <Input
+          type="search"
+          aria-label="Pesquisar clientes"
+          placeholder="Pesquisar clientes..."
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+          className="w-full sm:max-w-xs"
+        />
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v ?? "all"); setPage(1); }}>
+          <SelectTrigger className="w-full sm:w-44" aria-label="Filtrar por situação comercial">
+            <SelectValue placeholder="Todas situações" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas situações</SelectItem>
             {statuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={vendorFilter} onValueChange={(v) => setVendorFilter(v ?? "all")}>
-          <SelectTrigger className="w-full sm:w-44"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
+        <Select value={vendorFilter} onValueChange={(v) => { setVendorFilter(v ?? "all"); setPage(1); }}>
+          <SelectTrigger className="w-full sm:w-44" aria-label="Filtrar por responsável">
+            <SelectValue placeholder="Todos responsáveis" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos responsáveis</SelectItem>
             {vendors.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
@@ -171,7 +196,7 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
         </Select>
         <SortFilter
           value={sort}
-          onChange={(v) => setSort(v ?? "name|asc")}
+          onChange={(v) => { setSort(v ?? "name|asc"); setPage(1); }}
           fields={[
             { value: "name", label: "Nome" },
             { value: "lastContact", label: "Último contato" },
@@ -183,6 +208,7 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
             {view === "active" && (
               <>
                 <Button size="sm" variant="outline" onClick={() => setConfirm({ type: "archive", open: true })}>Arquivar</Button>
@@ -215,7 +241,11 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-10">
-                <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
+                <Checkbox
+                  checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                  onCheckedChange={toggleAll}
+                  aria-label="Selecionar todos os clientes desta página"
+                />
               </TableHead>
               <TableHead>Cliente / anunciante</TableHead>
               <TableHead>Responsável</TableHead>
@@ -224,14 +254,14 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
               <TableHead>Vídeo</TableHead>
               <TableHead>Último contato</TableHead>
               <TableHead className="text-right">Próximo contato</TableHead>
-              <TableHead className="w-10"></TableHead>
+              <TableHead className="w-10 text-right"><span className="sr-only">Ações</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paged.map((c) => (
               <TableRow
                 key={c.id}
-                className="cursor-pointer select-none"
+                className="select-none"
                 onClick={() => onRowClick(c.id)}
                 onPointerDown={(e) => onRowPointerDown(e, c.id)}
                 onPointerMove={onRowPointerMove}
@@ -241,11 +271,28 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
                 onContextMenu={(e) => { if (longPressTimer.current || selected.size > 0) e.preventDefault(); }}
               >
                 <TableCell onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                  <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggle(c.id)} />
+                  <Checkbox
+                    checked={selected.has(c.id)}
+                    onCheckedChange={() => toggle(c.id)}
+                    aria-label={`Selecionar cliente ${c.name}`}
+                  />
                 </TableCell>
-                <TableCell className="font-medium">{c.name}</TableCell>
+                <TableCell
+                  className="font-medium"
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    aria-label={`Abrir cliente ${c.name}`}
+                    className="rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => onRowClick(c.id)}
+                  >
+                    {c.name}
+                  </button>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{c.responsible ?? "—"}</TableCell>
-                <TableCell><Badge variant="outline" className="font-normal">{c.commercialStatus ?? c.contractStatus}</Badge></TableCell>
+                <TableCell><Badge variant="outline" className="font-normal">{c.commercialStatus ?? c.contractStatus ?? "—"}</Badge></TableCell>
                 <TableCell className="text-muted-foreground">
                   <div className="flex flex-col">
                     <span>{c.nextAction ?? "—"}</span>
@@ -261,27 +308,34 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
                   onClick={(e) => e.stopPropagation()}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
-                  {formatDate(resolveNextContact(c))}
-                </TableCell>
-                <TableCell className="text-right">
-                  {isNextContactOverdue(c) && <span className="text-destructive text-xs">atrasado</span>}
-                </TableCell>
-                <TableCell className="text-right">
-                  {isNextContactOverdue(c) && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-1 h-7"
-                      disabled={nextContactBusy}
-                      aria-label="Concluir próximo contato"
-                      onClick={async (e) => { e.stopPropagation(); await completeNextContact(c.id); }}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
+                  <div className="flex flex-col items-end gap-1">
+                    <span>{formatDate(resolveNextContact(c))}</span>
+                    {isNextContactOverdue(c) && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-destructive">Atrasado</span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7"
+                          disabled={nextContactBusyId === c.id}
+                          aria-label={`Concluir próximo contato de ${c.name}`}
+                          onClick={async (e) => { e.stopPropagation(); await completeNextContact(c.id); }}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                  <Button size="sm" variant="ghost" onClick={() => setEditClient(c)}><Pencil className="h-4 w-4" /></Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Editar cliente ${c.name}`}
+                    onClick={() => setEditClient(c)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -311,16 +365,22 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirm.open} onOpenChange={(o) => setConfirm((prev) => ({ ...prev, open: o }))}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Confirmar ação</DialogTitle></DialogHeader>
-          <p className="text-sm">Deseja {labels[confirm.type]} {selected.size} item(ns)?</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirm({ type: "", open: false })}>Cancelar</Button>
-            <Button variant="destructive" onClick={runAction} disabled={loading}>{loading ? "Processando..." : "Confirmar"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog open={confirm.open} onOpenChange={(o) => setConfirm((prev) => ({ ...prev, open: o }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar ação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja {labels[confirm.type]} {selected.size} item(ns)?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={runAction} disabled={loading}>
+              {loading ? "Processando..." : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

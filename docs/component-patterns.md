@@ -9,7 +9,7 @@ Componentes em `components/ui`:
 `alert`, `avatar`, `badge`, `button`, `calendar`, `card`, `checkbox`, `dialog`, `dropdown-menu`, `input`, `label`, `popover`, `select`, `separator`, `sheet`, `skeleton`, `sort-filter`, `switch`, `table`, `tabs`, `textarea`, `toast`, `tooltip`.
 
 Regras:
-- Exclusões/confirmações destrutivas: `AlertDialog` (padrão-alvo; ver desvios).
+- Exclusões/confirmações destrutivas: `AlertDialog` (obrigatório). `Dialog` só para formulários e fluxos com múltiplas decisões.
 - Formulários em modal: `Dialog`.
 - Menus de ações: `DropdownMenu`.
 - Notificações: `toast.add` (`components/ui/toast.tsx`) + `Toaster` no `app/layout.tsx`.
@@ -52,21 +52,24 @@ Filtros:
 - `Input` de busca `w-full sm:max-w-xs`.
 - `Select` de status/tipo/vendedor `w-full sm:w-40`.
 - `SortFilter` (`components/ui/sort-filter.tsx`) com valor `campo|direção`; campos com ícone opcional.
-- Filtragem/ordenação no cliente; resetar página para 1 ao mudar busca/filtros.
+- `Input` com `type="search"`/`aria-label`; `SelectTrigger` com `aria-label` e `SelectValue placeholder`.
+- Filtragem/ordenação no cliente; resetar página para 1 **nos próprios handlers** de busca/filtro/ordenação (não com `useEffect` + `setState`, que dispara `react-hooks/set-state-in-effect`).
 
 Seleção em massa:
-- `Checkbox` no cabeçalho (página atual) e por linha.
+- `Checkbox` no cabeçalho (página atual) e por linha, sempre com `aria-label`; cabeçalho usa `checked={all ? true : some ? "indeterminate" : false}`.
 - Long-press 450ms na linha, ignorando `button, a, input, [role='checkbox']`; cancela se mover > 8px.
-- Barra de ações quando `selected.size > 0`: contagem + ações contextuais (arquivar/excluir/restaurar/purge).
-- Ações em lote com confirmação.
+- Barra de ações quando `selected.size > 0`: contagem + “Limpar seleção” + ações contextuais (arquivar/excluir/restaurar/purge).
+- Clique no mouse na linha é conveniência; o acesso por teclado se dá por um `button` na célula identificadora (`aria-label="Abrir ..."`), sem sequestrar a seleção. Remover `cursor-pointer` da linha.
+- Ações em lote com `AlertDialog`; `try/catch/finally` para loading e toast de erro.
 
 ## Formulários
 
 - React Hook Form + `zodResolver`; schemas em `lib/validators.ts`.
 - Seções com cabeçalho `border-b pb-2` e título `text-sm font-semibold`.
 - Grid `grid gap-4 md:grid-cols-2`; campo `space-y-2`.
-- `Label` + `Input`/`Select`/`Textarea`/`Checkbox`/`Switch`.
-- Erro de campo: `text-sm text-destructive`.
+- `Label` com `htmlFor` associado ao `id` do controle (`SelectTrigger`/`Switch` também recebem `id`); `aria-label` quando não há label visível.
+- Erro de campo: `text-sm text-destructive` com `id="campo-error"` + `role="alert"`; controle com `aria-invalid` e `aria-describedby`.
+- Todo formulário em dialog usa React Hook Form + `zodResolver` com schema em `lib/validators.ts` (inclui o formulário de lembretes).
 - Máscaras locais: moeda, telefone, CPF/CNPJ (em `client-form.tsx`).
 - Campos condicionais usam `watch` do React Hook Form; em `client-form.tsx`, `videoFrequency === "weekly"` controla a exibição dos dias do vídeo (`Select` + `Popover`/`Checkbox`).
 - Submit: “Salvando...” + `disabled`; cancelar `variant="outline"`.
@@ -92,9 +95,9 @@ Padrão-alvo (AlertDialog):
 </AlertDialog>
 ```
 
-- Destrutivo: `Button variant="destructive"`.
+- Destrutivo: `AlertDialogAction variant="destructive"`.
 - Processando: `disabled` + “Processando...”.
-- Estado atual: `clients-table`, `contract-table`, `reminders-view`, `trash-view`, `settings-view` usam `Dialog` para confirmação. Migrar para `AlertDialog` ao tocar no arquivo.
+- Estado atual: `clients-table`, `contract-table`, `reminders-view`, `trash-view`, `dashboard-reminders` e `dashboard-middle` usam `AlertDialog`. Em `settings-view`, `Dialog` permanece apenas para os fluxos do Google (múltiplas decisões: background/continuar).
 
 ## Dialogs
 
@@ -115,6 +118,8 @@ Padrão-alvo (AlertDialog):
 - Botão: texto de progresso + `disabled` (`Salvando...`, `Processando...`, `Gerando...`).
 - Página: `Skeleton` (`components/ui/skeleton.tsx`) quando necessário.
 - Jobs longos: `BackgroundJobStatus` com polling (topbar a cada 4s; status a cada 1,5s).
+- `BackgroundJobStatus` expõe `role="progressbar"` com `aria-valuenow/min/max` e `role="status"` com o texto do estado; o indicador circular da topbar inclui `aria-label` com percentual e quantidade de tarefas.
+- Animações usam `motion-safe:animate-spin` / `motion-reduce:transition-none`.
 - Evitar spinners soltos sem contexto.
 
 ## Dashboard
@@ -150,15 +155,15 @@ Padrão-alvo (AlertDialog):
 ## Navegação e layout
 
 - `PageHeader` (`components/layout/page-header.tsx`) para páginas compostas.
-- Sidebar desktop + `Sheet` mobile com os mesmos grupos/itens (`components/layout/sidebar.tsx`, `topbar.tsx`).
-- Item ativo: `bg-primary/10 text-primary font-medium`; ícone `h-4 w-4`.
+- Grupos/itens vêm de `lib/navigation.ts` (`navGroups`, `isNavItemActive`); sidebar desktop e `Sheet` mobile consomem a mesma fonte.
+- Item ativo: `bg-primary/10 text-primary font-medium`; ícone `h-4 w-4` com `aria-hidden`; link ativo com `aria-current="page"`.
 - Sem breadcrumbs.
-- Topbar `sticky h-14` com blur; notificações e jobs em `DropdownMenu`.
+- Topbar `sticky h-14` com blur; notificações e jobs em `DropdownMenu`, com `aria-label` informando contagem não lida/progresso.
 
 ## Abas
 
-- Usar `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` (`components/ui/tabs.tsx`).
-- Settings atualmente usa sidebar de botões controlada por estado; padrão-alvo é `Tabs`.
+- Preferir `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` (`components/ui/tabs.tsx`).
+- Settings mantém botões controlados por estado, mas com `role="tablist"`/`role="tab"`/`role="tabpanel"`, `aria-selected`, `aria-controls`, `aria-labelledby` e navegação por setas/Home/End (`tabIndex` roving).
 - Abas devem compartilhar estrutura e ações equivalentes.
 
 ## Responsividade
@@ -172,16 +177,18 @@ Padrão-alvo (AlertDialog):
 
 ## Acessibilidade
 
-- `Label` associada a todo input.
-- Botões de ícone com `aria-label`; `<span className="sr-only">` quando necessário.
-- Foco visível (`focus-visible:ring-3 focus-visible:ring-ring/50`).
-- Status com texto/badge, não apenas cor.
-- Navegação por teclado nos componentes shadcn.
-- Contraste adequado nos temas claro/escuro.
+- `Label` com `htmlFor`/`id` associada a todo campo; erros com `role="alert"` referenciados por `aria-describedby`.
+- Botões de ícone com `aria-label`; ícones decorativos com `aria-hidden="true"`; `<span className="sr-only">` para cabeçalhos de ação sem texto.
+- Foco visível (`focus-visible:ring-2 focus-visible:ring-ring`) em controles customizados, incluindo linhas clicáveis e presets de tema.
+- Status com texto/badge, não apenas cor (ex.: “Vencido”, “Atrasado”, “Concluída”).
+- Navegação por teclado em tabelas (`button` na célula identificadora), abas (setas/Home/End) e listas com `aria-current`.
+- Progresso com `role="progressbar"`/`aria-valuenow`; carregamento com `role="status"`; erros com `role="alert"`.
+- Movimento respeita `prefers-reduced-motion` (`motion-safe`/`motion-reduce`).
+- Contraste adequado nos temas claro/escuro (tokens OKLCH em `app/globals.css`).
 
 ## Desvios conhecidos
 
-- Confirmações destrutivas usam `Dialog` em vez de `AlertDialog` (exceto exclusão de evento no dashboard, já migrada).
-- Settings usa abas customizadas em vez de `Tabs`.
-- `ClientForm` não aceita `onCancel`; `ContractForm` aceita.
+- Settings usa abas customizadas em vez de `Tabs`; agora possuem ARIA completa e navegação por setas/Home/End.
 - Lembretes usam `Input type="date"` em vez de `Calendar`/`Popover`.
+- Cores pontuais sem token semântico (`text-emerald-500`, `text-amber-500`, `text-green-600`, `bg-sky-100`) permanecem em alguns badges; criar tokens `--success`/`--warning` exige pedido explícito.
+- `watch()` do React Hook Form gera warning `react-hooks/incompatible-library` (aceito; o React Compiler pula a memoização desses componentes).

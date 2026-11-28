@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,11 +13,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { Plus, Pencil, Trash2, CheckCircle2, Archive, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Trash2, CheckCircle2, RotateCcw } from "lucide-react";
 import {
   createReminderAction,
   updateReminderAction,
@@ -28,6 +41,9 @@ import {
 import { formatDate } from "@/lib/date-utils";
 import { getActiveClientsAction } from "@/app/actions/clients";
 import { SortFilter } from "@/components/ui/sort-filter";
+import { reminderSchema } from "@/lib/validators";
+
+type ReminderValues = z.infer<typeof reminderSchema>;
 
 type Reminder = {
   id: string;
@@ -62,7 +78,6 @@ export function RemindersView({
   useEffect(() => {
     getActiveClientsAction().then((c) => { if (Array.isArray(c) && c.length) setClientList(c); }).catch(() => {});
   }, []);
-  const source = reminders;
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -76,11 +91,21 @@ export function RemindersView({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Reminder | null>(null);
-  const [form, setForm] = useState({ title: "", message: "", dueDate: "", type: "custom", clientId: "" });
   const [clientList, setClientList] = useState(clients);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<ReminderValues>({
+    resolver: zodResolver(reminderSchema),
+    defaultValues: { title: "", message: "", dueDate: "", type: "custom", clientId: "" },
+  });
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressFired = useRef(false);
   const longPressStart = useRef<{ x: number; y: number } | null>(null);
 
   const typesList = useMemo(() => Array.from(new Set(reminders.map((r) => r.type).filter(Boolean))), [reminders]);
@@ -104,13 +129,12 @@ export function RemindersView({
       return dir === "desc" ? -cmp : cmp;
     });
 
-  useEffect(() => { setPage(1); }, [query, typeFilter, statusFilter]);
-
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const allSelected = paged.length > 0 && paged.every((r) => selected.has(r.id));
+  const someSelected = paged.some((r) => selected.has(r.id)) && !allSelected;
 
   function toggleAll() {
     const next = new Set(selected);
@@ -132,11 +156,9 @@ export function RemindersView({
   function onRowPointerDown(e: React.PointerEvent, id: string) {
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest("button, a, input, [role='checkbox'], [data-slot='checkbox']")) return;
-    longPressFired.current = false;
     longPressStart.current = { x: e.clientX, y: e.clientY };
     clearLongPress();
     longPressTimer.current = setTimeout(() => {
-      longPressFired.current = true;
       setSelected((prev) => {
         const next = new Set(prev);
         next.add(id);
@@ -153,42 +175,40 @@ export function RemindersView({
   function onRowPointerUp() { clearLongPress(); }
 
   function resetForm() {
-    setForm({ title: "", message: "", dueDate: "", type: "custom", clientId: "" });
+    reset({ title: "", message: "", dueDate: "", type: "custom", clientId: "" });
     setEditing(null);
   }
 
   function openCreate() { resetForm(); setOpen(true); }
   function openEdit(r: Reminder) {
     setEditing(r);
-    setForm({
+    reset({
       title: r.title,
       message: r.message ?? "",
       dueDate: new Date(r.dueDate).toISOString().slice(0, 10),
-      type: r.type,
+      type: r.type as ReminderValues["type"],
       clientId: r.clientId ?? "",
     });
     setOpen(true);
   }
 
-  async function handleSubmit() {
+  const submitForm = handleSubmit(async (values) => {
     setLoading(true);
-    const payload = {
-      title: form.title,
-      message: form.message || null,
-      dueDate: form.dueDate,
-      type: form.type as any,
-      clientId: form.clientId || null,
-    };
-    const res = editing
-      ? await updateReminderAction(editing.id, payload as any)
-      : await createReminderAction(payload as any);
-    setLoading(false);
-    if (res?.error) { toast.add({ title: "Erro", description: res.error }); return; }
-    toast.add({ title: "Concluído" });
-    setOpen(false);
-    resetForm();
-    router.refresh();
-  }
+    try {
+      const res = editing
+        ? await updateReminderAction(editing.id, values)
+        : await createReminderAction(values);
+      if (res?.error) { toast.add({ title: "Erro", description: res.error }); return; }
+      toast.add({ title: "Concluído" });
+      setOpen(false);
+      resetForm();
+      router.refresh();
+    } catch (error) {
+      toast.add({ title: "Erro", description: error instanceof Error ? error.message : "Erro inesperado" });
+    } finally {
+      setLoading(false);
+    }
+  });
 
   async function handleDelete(id: string) {
     setDeleteId(id);
@@ -197,11 +217,31 @@ export function RemindersView({
 
   async function confirmDelete() {
     if (!deleteId) return;
-    await deleteRemindersAction([deleteId]);
-    toast.add({ title: "Excluído" });
-    setDeleteOpen(false);
-    setDeleteId(null);
-    router.refresh();
+    setLoading(true);
+    try {
+      await deleteRemindersAction([deleteId]);
+      toast.add({ title: "Excluído" });
+      setDeleteOpen(false);
+      setDeleteId(null);
+      router.refresh();
+    } catch (error) {
+      toast.add({ title: "Erro", description: error instanceof Error ? error.message : "Erro inesperado" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function toggleComplete(r: Reminder) {
+    setBusyId(r.id);
+    try {
+      if (r.completed) await uncompleteReminderAction(r.id);
+      else await completeReminderAction(r.id);
+      router.refresh();
+    } catch (error) {
+      toast.add({ title: "Erro", description: error instanceof Error ? error.message : "Erro inesperado" });
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function runAction() {
@@ -215,11 +255,12 @@ export function RemindersView({
       toast.add({ title: "Concluído" });
       setSelected(new Set());
       router.refresh();
-    } catch (e) {
-      toast.add({ title: "Erro", description: String(e) });
+    } catch (error) {
+      toast.add({ title: "Erro", description: error instanceof Error ? error.message : "Erro inesperado" });
+    } finally {
+      setLoading(false);
+      setConfirmDialog({ type: "", open: false });
     }
-    setLoading(false);
-    setConfirmDialog({ type: "", open: false });
   }
 
   const labels: Record<string, string> = {
@@ -232,34 +273,43 @@ export function RemindersView({
   return (
     <div className="p-4 space-y-3">
       <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
-        <Input placeholder="Pesquisar lembretes..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-full sm:max-w-xs" />
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "all")}>
-          <SelectTrigger className="w-full sm:w-40"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
+        <Input
+          type="search"
+          aria-label="Pesquisar lembretes"
+          placeholder="Pesquisar lembretes..."
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+          className="w-full sm:max-w-xs"
+        />
+        <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v ?? "all"); setPage(1); }}>
+          <SelectTrigger aria-label="Filtrar por tipo" className="w-full sm:w-40"><SelectValue placeholder="Todos os tipos" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos tipos</SelectItem>
-            {typesList.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            <SelectItem value="all">Todos os tipos</SelectItem>
+            {typesList.map((t) => <SelectItem key={t} value={t}>{typeLabels[t] ?? t}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
-          <SelectTrigger className="w-full sm:w-40"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v ?? "all"); setPage(1); }}>
+          <SelectTrigger aria-label="Filtrar por status" className="w-full sm:w-40"><SelectValue placeholder="Todos os status" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos status</SelectItem>
+            <SelectItem value="all">Todos os status</SelectItem>
             <SelectItem value="Pendente">Pendente</SelectItem>
             <SelectItem value="Concluído">Concluído</SelectItem>
           </SelectContent>
         </Select>
         <SortFilter
           value={sort}
-          onChange={(v) => setSort(v ?? "dueDate|asc")}
+          onChange={(v) => { setSort(v ?? "dueDate|asc"); setPage(1); }}
           fields={[
             { value: "dueDate", label: "Vencimento" },
             { value: "title", label: "Título" },
           ]}
           triggerLabel="Ordenar"
         />
+        <Button onClick={openCreate} className="w-full sm:w-auto sm:ml-auto"><Plus className="h-4 w-4 mr-2" />Novo lembrete</Button>
         {selected.size > 0 && (
-          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full">
             <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
             {view === "active" && (
               <>
                 <Button size="sm" variant="outline" onClick={() => setConfirmDialog({ type: "archive", open: true })}>Arquivar</Button>
@@ -272,23 +322,27 @@ export function RemindersView({
                 <Button size="sm" variant="destructive" onClick={() => setConfirmDialog({ type: "delete", open: true })}>Apagar</Button>
               </>
             )}
-
           </div>
         )}
       </div>
 
 
       {view !== "trash" && (
-      <div className="flex items-center gap-1 rounded-lg border p-1 w-full sm:w-auto mb-2">
+      <nav aria-label="Visão de lembretes" className="flex items-center gap-1 rounded-lg border p-1 w-full sm:w-auto mb-2">
         {[
           { key: "active", label: "Ativos" },
           { key: "archived", label: "Arquivados" },
         ].map((t) => (
-          <Link key={t.key} href={`/reminders?view=${t.key}`} className={`flex-1 sm:flex-none text-center px-3 py-1.5 text-sm rounded-md ${view === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+          <Link
+            key={t.key}
+            href={`/reminders?view=${t.key}`}
+            aria-current={view === t.key ? "page" : undefined}
+            className={`flex-1 sm:flex-none text-center px-3 py-1.5 text-sm rounded-md ${view === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
             {t.label}
           </Link>
         ))}
-      </div>
+      </nav>
       )}
 
       <div
@@ -301,7 +355,11 @@ export function RemindersView({
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-10">
-                <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
+                <Checkbox
+                  aria-label="Selecionar todos os lembretes desta página"
+                  checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                  onCheckedChange={toggleAll}
+                />
               </TableHead>
               <TableHead>Título</TableHead>
               <TableHead>Cliente</TableHead>
@@ -315,7 +373,7 @@ export function RemindersView({
             {paged.map((r) => (
               <TableRow
                 key={r.id}
-                className="cursor-pointer select-none"
+                className="select-none"
                 onPointerDown={(e) => onRowPointerDown(e, r.id)}
                 onPointerMove={onRowPointerMove}
                 onPointerUp={onRowPointerUp}
@@ -323,7 +381,11 @@ export function RemindersView({
                 onPointerLeave={onRowPointerUp}
               >
                 <TableCell onPointerDown={(e) => e.stopPropagation()}>
-                  <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
+                  <Checkbox
+                    aria-label={`Selecionar lembrete ${r.title}`}
+                    checked={selected.has(r.id)}
+                    onCheckedChange={() => toggle(r.id)}
+                  />
                 </TableCell>
                 <TableCell className="font-medium">{r.title}</TableCell>
                 <TableCell className="text-muted-foreground">{r.client?.name ?? "Cliente removido"}</TableCell>
@@ -332,10 +394,30 @@ export function RemindersView({
                 <TableCell>{r.completed ? <Badge variant="secondary">Concluído</Badge> : <Badge>Pendente</Badge>}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    {!r.completed && <Button size="sm" variant="ghost" onClick={async () => { await completeReminderAction(r.id); router.refresh(); }}><CheckCircle2 className="h-4 w-4" /></Button>}
-                    {r.completed && <Button size="sm" variant="ghost" onClick={async () => { await uncompleteReminderAction(r.id); router.refresh(); }}>↩</Button>}
-                    <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(r.id)}><Trash2 className="h-4 w-4" /></Button>
+                    {!r.completed && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Concluir lembrete ${r.title}`}
+                        disabled={busyId === r.id}
+                        onClick={() => toggleComplete(r)}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {r.completed && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Reabrir lembrete ${r.title}`}
+                        disabled={busyId === r.id}
+                        onClick={() => toggleComplete(r)}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" aria-label={`Editar lembrete ${r.title}`} onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="ghost" aria-label={`Excluir lembrete ${r.title}`} onClick={() => handleDelete(r.id)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -358,72 +440,96 @@ export function RemindersView({
         />
       )}
 
-      <div className="flex justify-end">
-        <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Novo lembrete</Button>
-      </div>
-
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{editing ? "Editar lembrete" : "Novo lembrete"}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+          <form onSubmit={submitForm} className="space-y-3">
             <div className="space-y-2">
-              <Label>Título</Label>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <Label htmlFor="reminder-title">Título *</Label>
+              <Input
+                id="reminder-title"
+                aria-invalid={!!errors.title}
+                aria-describedby={errors.title ? "reminder-title-error" : undefined}
+                {...register("title")}
+              />
+              {errors.title && <p id="reminder-title-error" role="alert" className="text-sm text-destructive">{errors.title.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label>Mensagem</Label>
-              <Textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
+              <Label htmlFor="reminder-message">Mensagem</Label>
+              <Textarea id="reminder-message" {...register("message")} />
             </div>
             <div className="space-y-2">
-              <Label>Vencimento</Label>
-              <Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+              <Label htmlFor="reminder-dueDate">Vencimento *</Label>
+              <Input
+                id="reminder-dueDate"
+                type="date"
+                aria-invalid={!!errors.dueDate}
+                aria-describedby={errors.dueDate ? "reminder-dueDate-error" : undefined}
+                {...register("dueDate")}
+              />
+              {errors.dueDate && <p id="reminder-dueDate-error" role="alert" className="text-sm text-destructive">{errors.dueDate.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label>Tipo</Label>
-              <Select value={form.type} onValueChange={(v: string | null) => setForm({ ...form, type: v ?? "custom" })}>
-                <SelectTrigger><SelectValue>{typeLabels[form.type] ?? form.type}</SelectValue></SelectTrigger>
+              <Label htmlFor="reminder-type">Tipo</Label>
+              <Select
+                value={watch("type")}
+                onValueChange={(v) => setValue("type", v as ReminderValues["type"])}
+              >
+                <SelectTrigger id="reminder-type"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {types.map((t) => <SelectItem key={t} value={t}>{typeLabels[t] ?? t}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Cliente</Label>
-              <Select value={form.clientId} onValueChange={(v: string | null) => setForm({ ...form, clientId: v ?? "" })}>
-                <SelectTrigger><SelectValue placeholder="Selecione">{clientList.find((c) => c.id === form.clientId)?.name ?? "Selecione"}</SelectValue></SelectTrigger>
+              <Label htmlFor="reminder-clientId">Cliente</Label>
+              <Select
+                value={watch("clientId") ?? ""}
+                onValueChange={(v) => setValue("clientId", v ?? "")}
+              >
+                <SelectTrigger id="reminder-clientId"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {clientList.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancelar</Button>
-            <Button onClick={handleSubmit} disabled={loading}>{loading ? "Salvando..." : "Salvar"}</Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancelar</Button>
+              <Button type="submit" disabled={loading || isSubmitting}>{loading || isSubmitting ? "Salvando..." : "Salvar"}</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmDialog.open} onOpenChange={(o) => setConfirmDialog((prev) => ({ ...prev, open: o }))}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Confirmar ação</DialogTitle></DialogHeader>
-          <p className="text-sm">Deseja {labels[confirmDialog.type]} {selected.size} item(ns)?</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDialog({ type: "", open: false })}>Cancelar</Button>
-            <Button variant="destructive" onClick={runAction} disabled={loading}>{loading ? "Processando..." : "Confirmar"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Excluir lembrete</DialogTitle></DialogHeader>
-          <p className="text-sm">Deseja excluir este lembrete?</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={confirmDelete}>Excluir</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog open={confirmDialog.open} onOpenChange={(o) => setConfirmDialog((prev) => ({ ...prev, open: o }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar ação</AlertDialogTitle>
+            <AlertDialogDescription>Deseja {labels[confirmDialog.type]} {selected.size} item(ns)?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={runAction} disabled={loading}>
+              {loading ? "Processando..." : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lembrete</AlertDialogTitle>
+            <AlertDialogDescription>O lembrete será movido para a lixeira.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={confirmDelete} disabled={loading}>
+              {loading ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

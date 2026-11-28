@@ -3,67 +3,41 @@
 import { useEffect, useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import {
-  createEventAction,
-  deleteEventAction,
-  ensureClientContactEventsAction,
-  listEventsAction,
-} from "@/app/actions/events";
-import { formatDate, nextContactDate } from "@/lib/date-utils";
-import { CalendarDays as CalendarIcon } from "lucide-react";
-import { Trash2 } from "lucide-react";
-import { isSameDay, startOfMonth, endOfMonth } from "date-fns";
+import { toast } from "@/components/ui/toast";
+import { listEventsAction } from "@/app/actions/events";
+import { formatDate } from "@/lib/date-utils";
+import { startOfMonth, endOfMonth } from "date-fns";
+import type { Event as PrismaEvent } from "@/generated/prisma/client";
 
-type Vendor = { id: string; name: string | null };
+type CalendarEvent = PrismaEvent & { client: { name: string } | null };
 
-type ClientLite = {
-  id: string;
-  name: string;
-  lastContactAt: string | Date | null;
-  contactFrequencyDays: number;
-  vendorId: string | null;
-};
-export function CalendarView({
-  vendors,
-  clients = [],
-}: {
-  vendors: Vendor[];
-  clients?: ClientLite[];
-}) {
+export function CalendarView() {
   const [date, setDate] = useState<Date>(new Date());
-  const [events, setEvents] = useState<any[]>([]);
-  const [vendorFilter, setVendorFilter] = useState<string>("all");
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
 
   async function load(d: Date) {
-    const evs = await listEventsAction(
-      startOfMonth(d).toISOString(),
-      endOfMonth(d).toISOString(),
-    );
-    setEvents(evs);
+    try {
+      const evs = await listEventsAction(
+        startOfMonth(d).toISOString(),
+        endOfMonth(d).toISOString(),
+      );
+      setEvents(evs);
+    } catch (error) {
+      toast.add({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível carregar o calendário.",
+      });
+    }
   }
 
   useEffect(() => {
-    load(date);
+    queueMicrotask(() => {
+      void load(date);
+    });
   }, [date]);
 
-  function eventLocalDate(e: any) {
+  function eventLocalDate(e: CalendarEvent) {
     const d = new Date(e.start);
     return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   }
@@ -78,9 +52,9 @@ export function CalendarView({
   });
 
   const typeColor: Record<string, string> = {
-    video: "bg-sky-100 text-sky-700",
-    contact: "bg-amber-100 text-amber-700",
-    contract_expiry: "bg-red-100 text-red-700",
+    video: "bg-primary/10 text-primary",
+    contact: "bg-accent text-foreground",
+    contract_expiry: "bg-destructive/10 text-destructive",
     custom: "bg-muted text-foreground",
   };
 

@@ -11,7 +11,10 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    ".vercel/**",
     "next-env.d.ts",
+    // Prisma client gerado em tempo de build: não é código-fonte lintável.
+    "generated/prisma/**",
   ]),
 ]);
 

@@ -2,16 +2,10 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { Prisma } from "@/generated/prisma/client";
+import { Prisma, type Contract } from "@/generated/prisma/client";
 import { contractSchema } from "@/lib/validators";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-
-async function getUserId() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Não autenticado");
-  return session.user.id;
-}
 
 export async function createContractAction(data: z.infer<typeof contractSchema>) {
   const session = await auth();
@@ -122,7 +116,7 @@ export async function updateContractPdfAction(id: string, pdfBase64: string, pdf
 export async function deleteContractAction(id: string) {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
+  const role = (session!.user as { role?: string }).role;
   const where: Prisma.ContractWhereInput = { id };
   if (role !== "admin") where.vendorId = userId;
   await prisma.contract.updateMany({ where, data: { deletedAt: new Date(), archivedAt: null } });
@@ -133,7 +127,7 @@ export async function deleteContractAction(id: string) {
 export async function archiveContractsAction(ids: string[]) {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
+  const role = (session!.user as { role?: string }).role;
   const where: Prisma.ContractWhereInput = { id: { in: ids } };
   if (role !== "admin") where.vendorId = userId;
   await prisma.contract.updateMany({ where, data: { archivedAt: new Date(), deletedAt: null } });
@@ -144,7 +138,7 @@ export async function archiveContractsAction(ids: string[]) {
 export async function deleteContractsAction(ids: string[]) {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
+  const role = (session!.user as { role?: string }).role;
   const where: Prisma.ContractWhereInput = { id: { in: ids } };
   if (role !== "admin") where.vendorId = userId;
   await prisma.contract.updateMany({ where, data: { deletedAt: new Date(), archivedAt: null } });
@@ -155,7 +149,7 @@ export async function deleteContractsAction(ids: string[]) {
 export async function restoreContractsAction(ids: string[]) {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
+  const role = (session!.user as { role?: string }).role;
   const where: Prisma.ContractWhereInput = { id: { in: ids } };
   if (role !== "admin") where.vendorId = userId;
   const toRestore = await prisma.contract.findMany({ where: { ...where, deletedAt: { not: null } } });
@@ -171,7 +165,7 @@ export async function restoreContractsAction(ids: string[]) {
 export async function permanentDeleteContractsAction(ids: string[]) {
   const session = await auth();
   const userId = session!.user!.id as string;
-  const role = (session!.user as any).role;
+  const role = (session!.user as { role?: string }).role;
   const where: Prisma.ContractWhereInput = { id: { in: ids } };
   if (role !== "admin") where.vendorId = userId;
   await prisma.contract.deleteMany({ where });
@@ -226,8 +220,17 @@ export async function getAllContractsForExportAction() {
 function normImportText(v: unknown) { return String(v ?? "").trim().replace(/\s+/g, " ").toLowerCase(); }
 function normImportDate(v: unknown) { const d = v instanceof Date ? v : new Date(String(v ?? "")); return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10); }
 function normImportNum(v: unknown) { const n = Number(String(v ?? "").replace(/[^0-9,.-]/g, "").replace(",", ".")); return Number.isFinite(n) && String(v ?? "").trim() !== "" ? String(n) : ""; }
+function toNullableText(v: unknown): string | null {
+  return v == null ? null : typeof v === "string" ? v : String(v);
+}
+function toDateFromUnknown(v: unknown): Date {
+  if (v instanceof Date) return new Date(v.getTime());
+  if (typeof v === "string" || typeof v === "number") return new Date(v);
+  if (typeof v === "boolean") return new Date(v ? 1 : 0);
+  return new Date(String(v ?? ""));
+}
 
-function contractImportKey(r: Record<string, any>, clientId: string) {
+function contractImportKey(r: Record<string, unknown>, clientId: string) {
   return [
     clientId,
     normImportText(r.number ?? r["Nº Contrato / PI"] ?? r.Número),
@@ -242,7 +245,7 @@ function contractImportKey(r: Record<string, any>, clientId: string) {
   ].join("|");
 }
 
-function existingContractKey(c: any) {
+function existingContractKey(c: Contract) {
   return [
     String(c.clientId),
     normImportText(c.number),
@@ -257,7 +260,7 @@ function existingContractKey(c: any) {
   ].join("|");
 }
 
-export async function importContractsAction(rows: any[]) {
+export async function importContractsAction(rows: Record<string, unknown>[]) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Não autenticado");
   const userId = session.user.id as string;
@@ -278,19 +281,19 @@ export async function importContractsAction(rows: any[]) {
     if (!client) { skipped++; continue; }
     const key = contractImportKey(r, client.id);
     if (seen.has(key)) { skipped++; continue; }
-    const start = new Date(r.startDate ?? r["Data de Início"] ?? r["Data Início"] ?? new Date());
+    const start = toDateFromUnknown(r.startDate ?? r["Data de Início"] ?? r["Data Início"] ?? new Date());
     const duration = Number(r.durationMonths ?? r["Duração (Meses)"] ?? 0) || null;
     const endRaw = r.endDate ?? r["Data de Término (Auto)"] ?? r["Data Término"];
-    const end = endRaw ? new Date(endRaw) : new Date(start.getFullYear(), start.getMonth() + (duration ?? 1), start.getDate());
+    const end = endRaw ? toDateFromUnknown(endRaw) : new Date(start.getFullYear(), start.getMonth() + (duration ?? 1), start.getDate());
     const endDate = Number.isNaN(end.getTime()) ? start : end;
     const days = Math.floor((endDate.getTime() - Date.now()) / 86400000);
     await prisma.contract.create({
       data: {
-        number: r.number ?? r["Nº Contrato / PI"] ?? r.Número ?? null,
+        number: toNullableText(r.number ?? r["Nº Contrato / PI"] ?? r.Número ?? null),
         clientId: client.id,
         vendorId: userId,
-        sellerName: r.sellerName ?? r["Vendedor Responsável"] ?? r["Vendedor"] ?? null,
-        program: r.program ?? r["Programa / Faixa"] ?? null,
+        sellerName: toNullableText(r.sellerName ?? r["Vendedor Responsável"] ?? r["Vendedor"] ?? null),
+        program: toNullableText(r.program ?? r["Programa / Faixa"] ?? null),
         startDate: Number.isNaN(start.getTime()) ? new Date() : start,
         durationMonths: duration,
         endDate,
@@ -298,12 +301,12 @@ export async function importContractsAction(rows: any[]) {
         insertions: r.insertions ? Number(r.insertions) : (r.insertionsPerMonth ? Number(r.insertionsPerMonth) : null),
         insertionsPerDay: r.insertionsPerDay ? Number(r.insertionsPerDay) : (r["Qtd. Inserções / Dia"] ? Number(r["Qtd. Inserções / Dia"]) : null),
         insertionsPerMonth: r.insertionsPerMonth ? Number(r.insertionsPerMonth) : (r["Total Inserções / Mês"] ? Number(r["Total Inserções / Mês"]) : null),
-        timeSlots: r.timeSlots ?? r["Horários de Veiculação"] ?? r.Horários ?? null,
+        timeSlots: toNullableText(r.timeSlots ?? r["Horários de Veiculação"] ?? r.Horários ?? null),
         value: r.value ? Number(r.value) : (r["Valor Mensal (R$)"] ? Number(r["Valor Mensal (R$)"]) : null),
         totalValue: r.totalValue ? Number(r.totalValue) : (r["Valor Total / Valor Bruto"] ? Number(r["Valor Total / Valor Bruto"]) : null),
-        paymentInfo: r.paymentInfo ?? r["Pagamento / Vencimento"] ?? null,
+        paymentInfo: toNullableText(r.paymentInfo ?? r["Pagamento / Vencimento"] ?? null),
         status: days < 0 ? "expired" : days <= 30 ? "near_expiry" : "active",
-        notes: r.notes ?? r["Observações de Veiculação"] ?? null,
+        notes: toNullableText(r.notes ?? r["Observações de Veiculação"] ?? null),
       },
     });
     seen.add(key);

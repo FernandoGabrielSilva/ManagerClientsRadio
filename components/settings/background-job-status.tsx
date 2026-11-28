@@ -41,7 +41,14 @@ export function BackgroundJobStatus({ jobId, onDone }: { jobId: string; onDone?:
     return () => { active = false; if (timer) clearTimeout(timer); };
   }, [jobId, onDone]);
 
-  if (!job) return <div className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Carregando status...</div>;
+  if (!job) {
+    return (
+      <div className="text-sm text-muted-foreground flex items-center gap-2" role="status">
+        <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
+        Carregando status...
+      </div>
+    );
+  }
 
   const pct = job.total > 0 ? Math.min(100, Math.round((job.processed / job.total) * 100)) : job.progress;
   const done = job.status === "completed";
@@ -53,14 +60,34 @@ export function BackgroundJobStatus({ jobId, onDone }: { jobId: string; onDone?:
         <span className="font-medium">{job.title}</span>
         <span className="text-muted-foreground">{pct}%</span>
       </div>
-      <div className="h-2 w-full rounded bg-muted overflow-hidden">
-        <div className={`h-full transition-all ${failed ? "bg-destructive" : "bg-primary"}`} style={{ width: `${pct}%` }} />
+      <div
+        role="progressbar"
+        aria-label={`Progresso de ${job.title}`}
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        className="h-2 w-full rounded bg-muted overflow-hidden"
+      >
+        <div
+          className={`h-full transition-all motion-reduce:transition-none ${failed ? "bg-destructive" : "bg-primary"}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        {done ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : failed ? <XCircle className="h-4 w-4 text-destructive" /> : <Loader2 className="h-4 w-4 animate-spin" />}
-        <span>{job.message ?? job.status}{job.total ? ` (${job.processed}/${job.total})` : ""}</span>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
+        {done ? (
+          <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden="true" />
+        ) : failed ? (
+          <XCircle className="h-4 w-4 text-destructive" aria-hidden="true" />
+        ) : (
+          <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
+        )}
+        <span>
+          {job.message ?? job.status}
+          {job.total ? ` (${job.processed}/${job.total})` : ""}
+          {failed ? " — falhou" : done ? " — concluída" : ""}
+        </span>
       </div>
-      {job.error && <p className="text-xs text-destructive">{job.error}</p>}
+      {job.error && <p className="text-xs text-destructive" role="alert">{job.error}</p>}
     </div>
   );
 }

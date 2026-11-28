@@ -7,6 +7,7 @@ import { after } from "next/server";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar";
 import { createBackgroundJob, markJobCompleted, markJobFailed, markJobProgress, markJobRunning } from "@/lib/background-jobs";
 import { ensureClientContactEventsForUserInBackground } from "@/app/actions/events";
+import { BackgroundJobStatus, ContractStatus, Prisma, type Client, type Contract } from "@/generated/prisma/client";
 
 async function getUser() {
   const session = await auth();
@@ -17,8 +18,8 @@ async function getUser() {
 export async function getBackgroundJobsAction() {
   const user = await getUser();
   const u = await prisma.user.findUnique({ where: { id: user.id }, select: { autoClearCompletedJobs: true } });
-  const where: any = { userId: user.id };
-  if (u?.autoClearCompletedJobs) where.status = { in: ["pending", "running"] };
+  const where: Prisma.BackgroundJobWhereInput = { userId: user.id };
+  if (u?.autoClearCompletedJobs) where.status = { in: [BackgroundJobStatus.pending, BackgroundJobStatus.running] };
   return prisma.backgroundJob.findMany({
     where,
     orderBy: { createdAt: "desc" },
@@ -150,16 +151,30 @@ export async function startDeleteSyncedGoogleEventsJobAction() {
   return { jobId: job.id };
 }
 
-function toDateValue(v: any): Date | null {
+function toDateValue(v: unknown): Date | null {
   if (v == null || v === "") return null;
   if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
   if (typeof v === "number") { const d = new Date((v - 25569) * 86400 * 1000); return isNaN(d.getTime()) ? null : d; }
-  const d = new Date(v); return isNaN(d.getTime()) ? null : d;
+  if (typeof v === "boolean") return new Date(v ? 1 : 0);
+  const d = new Date(String(v)); return isNaN(d.getTime()) ? null : d;
 }
-function toNumberValue(v: any): number | null {
+function toNumberValue(v: unknown): number | null {
   if (v == null || v === "") return null;
   if (typeof v === "number") return v;
   const n = Number(String(v).replace(/[^0-9,.-]/g, "").replace(",", ".")); return isNaN(n) ? null : n;
+}
+function toNullableText(v: unknown): string | null {
+  return v == null ? null : typeof v === "string" ? v : String(v);
+}
+function toDateFromUnknown(v: unknown): Date {
+  if (v instanceof Date) return new Date(v.getTime());
+  if (typeof v === "string" || typeof v === "number") return new Date(v);
+  if (typeof v === "boolean") return new Date(v ? 1 : 0);
+  return new Date(String(v ?? ""));
+}
+function toContractStatus(v: unknown): ContractStatus {
+  const value = String(v ?? "");
+  return value === "paused" ? ContractStatus.paused : value === "ended" ? ContractStatus.ended : value === "negotiation" ? ContractStatus.negotiation : ContractStatus.active;
 }
 function normImportText(v: unknown) { return String(v ?? "").trim().replace(/\s+/g, " ").toLowerCase(); }
 function normImportDate(v: unknown) { const d = toDateValue(v); return d ? d.toISOString().slice(0, 10) : ""; }
@@ -168,22 +183,22 @@ function normalizeVideoFrequency(v: unknown) {
   const value = String(v ?? "").trim().toLowerCase();
   return value === "monthly" || value === "mensal" ? "monthly" : "weekly";
 }
-function clientImportKey(r: Record<string, any>) {
+function clientImportKey(r: Record<string, unknown>) {
   const contractStatus = (["active","paused","ended","negotiation"].includes(String(r.contractStatus)) ? String(r.contractStatus) : "active");
   return [normImportText(r.name ?? r["Cliente / anunciante"] ?? r.Nome ?? "Sem nome"), normImportText(r.responsible ?? r["Responsável"]), normImportText(r.contactName ?? r["Contato / decisor"] ?? r.Contato), normImportText(r.phone ?? r.WhatsApp ?? r.Telefone), normImportText(r.email ?? r.Email), normImportText(r.commercialStatus ?? r["Situação comercial"]), normImportNum(r.contractValue ?? r["Valor proposto (R$)"]), normImportDate(r.lastContactAt ?? r["Último contato"]), normImportText(r.contactType ?? r["Tipo de contato"]), normImportText(r.nextAction ?? r["Próxima ação"]), normImportDate(r.nextActionDate ?? r["Data próxima ação"]), normImportText(r.notes ?? r["Histórico / observações"] ?? r.Observações), normImportDate(r.dateConference ?? r["Conferência de datas"]), normalizeVideoFrequency(r.videoFrequency ?? r["Frequência Vídeo"]), String(Math.max(0, Math.min(127, Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1) || 1))), String(Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? 14) || 14))), contractStatus].join("|");
 }
-function existingClientKey(c: any) {
+function existingClientKey(c: Client) {
   return [normImportText(c.name),normImportText(c.responsible),normImportText(c.contactName),normImportText(c.phone),normImportText(c.email),normImportText(c.commercialStatus),normImportNum(c.contractValue),normImportDate(c.lastContactAt),normImportText(c.contactType),normImportText(c.nextAction),normImportDate(c.nextActionDate),normImportText(c.notes),normImportDate(c.dateConference),normalizeVideoFrequency(c.videoFrequency),String(Math.max(0,Math.min(127,Number(c.videoWeekday ?? 1)||1))),String(Math.max(1,Math.min(365,Number(c.contactFrequencyDays ?? 14)||14))),String(c.contractStatus ?? "active")].join("|");
 }
-function contractImportKey(r: Record<string, any>, clientId: string) {
+function contractImportKey(r: Record<string, unknown>, clientId: string) {
   const mediaType = (["spot","sponsorship","testimonial","other"].includes(String(r.mediaType)) ? String(r.mediaType) : "spot");
   return [clientId,normImportText(r.number ?? r.Número),normImportText(r.sellerName ?? r["Vendedor"]),mediaType,normImportDate(r.startDate ?? r["Data Início"]),normImportDate(r.endDate ?? r["Data Término"]),normImportNum(r.insertions ?? r.Inserções),normImportText(r.timeSlots ?? r.Horários),normImportNum(r.value ?? r.Valor),normImportText(r.notes ?? r.Observações)].join("|");
 }
-function existingContractKey(c: any) {
+function existingContractKey(c: Contract) {
   return [String(c.clientId),normImportText(c.number),normImportText(c.sellerName),String(c.mediaType ?? "spot"),normImportDate(c.startDate),normImportDate(c.endDate),normImportNum(c.insertions),normImportText(c.timeSlots),normImportNum(c.value),normImportText(c.notes)].join("|");
 }
 
-async function runImportClients(jobId: string, userId: string, role: string | undefined, rows: any[]) {
+async function runImportClients(jobId: string, userId: string, role: string | undefined, rows: Record<string, unknown>[]) {
   try {
     const safeRows = Array.isArray(rows) ? rows.slice(0, 500) : [];
     await markJobRunning(jobId, safeRows.length);
@@ -199,14 +214,14 @@ async function runImportClients(jobId: string, userId: string, role: string | un
       const existingByName = await prisma.client.findFirst({ where: { userId, deletedAt: null, name } });
       if (existingByName) {
         await prisma.client.update({ where: { id: existingByName.id }, data: {
-          phone: r.phone ?? r.WhatsApp ?? r.Telefone ?? existingByName.phone,
-          email: r.email ?? r.Email ?? existingByName.email,
-          contactName: r.contactName ?? r["Contato / decisor"] ?? r.Contato ?? existingByName.contactName,
-          notes: r.notes ?? r["Histórico / observações"] ?? r.Observações ?? existingByName.notes,
-          responsible: r.responsible ?? r["Responsável"] ?? existingByName.responsible,
-          commercialStatus: r.commercialStatus ?? r["Situação comercial"] ?? existingByName.commercialStatus,
-          contactType: r.contactType ?? r["Tipo de contato"] ?? existingByName.contactType,
-          nextAction: r.nextAction ?? r["Próxima ação"] ?? existingByName.nextAction,
+          phone: toNullableText(r.phone ?? r.WhatsApp ?? r.Telefone ?? existingByName.phone),
+          email: toNullableText(r.email ?? r.Email ?? existingByName.email),
+          contactName: toNullableText(r.contactName ?? r["Contato / decisor"] ?? r.Contato ?? existingByName.contactName),
+          notes: toNullableText(r.notes ?? r["Histórico / observações"] ?? r.Observações ?? existingByName.notes),
+          responsible: toNullableText(r.responsible ?? r["Responsável"] ?? existingByName.responsible),
+          commercialStatus: toNullableText(r.commercialStatus ?? r["Situação comercial"] ?? existingByName.commercialStatus),
+          contactType: toNullableText(r.contactType ?? r["Tipo de contato"] ?? existingByName.contactType),
+          nextAction: toNullableText(r.nextAction ?? r["Próxima ação"] ?? existingByName.nextAction),
           nextActionDate: toDateValue(r.nextActionDate ?? r["Data próxima ação"]) ?? existingByName.nextActionDate,
           contractValue: toNumberValue(r.contractValue ?? r["Valor proposto (R$)"]) ?? existingByName.contractValue,
           lastContactAt: toDateValue(r.lastContactAt ?? r["Último contato"]) ?? existingByName.lastContactAt,
@@ -218,18 +233,18 @@ async function runImportClients(jobId: string, userId: string, role: string | un
       }
       await prisma.client.create({ data: {
         userId, vendorId: userId, name,
-        phone: r.phone ?? r.WhatsApp ?? r.Telefone ?? null,
-        email: r.email ?? r.Email ?? null,
-        contactName: r.contactName ?? r["Contato / decisor"] ?? r.Contato ?? null,
+        phone: toNullableText(r.phone ?? r.WhatsApp ?? r.Telefone ?? null),
+        email: toNullableText(r.email ?? r.Email ?? null),
+        contactName: toNullableText(r.contactName ?? r["Contato / decisor"] ?? r.Contato ?? null),
         videoFrequency: normalizeVideoFrequency(r.videoFrequency ?? r["Frequência Vídeo"]),
         videoWeekday: Math.max(0, Math.min(127, Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1) || 1)),
         contactFrequencyDays: Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? 14) || 14)),
-        contractStatus: (["active","paused","ended","negotiation"].includes(String(r.contractStatus)) ? r.contractStatus : "active") as any,
-        notes: r.notes ?? r["Histórico / observações"] ?? r.Observações ?? null,
-        responsible: r.responsible ?? r["Responsável"] ?? null,
-        commercialStatus: r.commercialStatus ?? r["Situação comercial"] ?? null,
-        contactType: r.contactType ?? r["Tipo de contato"] ?? null,
-        nextAction: r.nextAction ?? r["Próxima ação"] ?? null,
+        contractStatus: toContractStatus(r.contractStatus),
+        notes: toNullableText(r.notes ?? r["Histórico / observações"] ?? r.Observações ?? null),
+        responsible: toNullableText(r.responsible ?? r["Responsável"] ?? null),
+        commercialStatus: toNullableText(r.commercialStatus ?? r["Situação comercial"] ?? null),
+        contactType: toNullableText(r.contactType ?? r["Tipo de contato"] ?? null),
+        nextAction: toNullableText(r.nextAction ?? r["Próxima ação"] ?? null),
         nextActionDate: toDateValue(r.nextActionDate ?? r["Data próxima ação"]),
         dateConference: toDateValue(r.dateConference ?? r["Conferência de datas"]),
         contractValue: toNumberValue(r.contractValue ?? r["Valor proposto (R$)"]),
@@ -244,11 +259,11 @@ async function runImportClients(jobId: string, userId: string, role: string | un
   } catch (e) { await markJobFailed(jobId, e instanceof Error ? e.message : String(e)); }
 }
 
-async function runImportContracts(jobId: string, userId: string, role: string | undefined, rows: any[]) {
+async function runImportContracts(jobId: string, userId: string, role: string | undefined, rows: Record<string, unknown>[]) {
   try {
     const safeRows = Array.isArray(rows) ? rows.slice(0, 500) : [];
     await markJobRunning(jobId, safeRows.length);
-    const existingWhere: any = role === "admin" ? {} : { vendorId: userId };
+    const existingWhere: Prisma.ContractWhereInput = role === "admin" ? {} : { vendorId: userId };
     const existing = await prisma.contract.findMany({ where: existingWhere });
     const seen = new Set(existing.map(existingContractKey));
     let count = 0, skipped = 0;
@@ -257,24 +272,24 @@ async function runImportContracts(jobId: string, userId: string, role: string | 
       if (!r || typeof r !== "object") { skipped++; await markJobProgress(jobId, i + 1, safeRows.length, `Importando ${i + 1}/${safeRows.length}`); continue; }
       const clientName = String(r.client ?? r.Cliente ?? "").trim();
       if (!clientName) { skipped++; await markJobProgress(jobId, i + 1, safeRows.length, `Importando ${i + 1}/${safeRows.length}`); continue; }
-      const clientWhere: any = { name: clientName };
+      const clientWhere: Prisma.ClientWhereInput = { name: clientName };
       if (role !== "admin") clientWhere.OR = [{ userId }, { vendorId: userId }];
       const client = await prisma.client.findFirst({ where: clientWhere, select: { id: true } });
       if (!client) { skipped++; await markJobProgress(jobId, i + 1, safeRows.length, `Cliente não encontrado ${i + 1}/${safeRows.length}`); continue; }
       const key = contractImportKey(r, client.id);
       if (seen.has(key)) { skipped++; await markJobProgress(jobId, i + 1, safeRows.length, `Pulando duplicado ${i + 1}/${safeRows.length}`); continue; }
-      const start = new Date(r.startDate ?? r["Data Início"] ?? new Date());
-      const end = new Date(r.endDate ?? r["Data Término"] ?? new Date());
+      const start = toDateFromUnknown(r.startDate ?? r["Data Início"] ?? new Date());
+      const end = toDateFromUnknown(r.endDate ?? r["Data Término"] ?? new Date());
       await prisma.contract.create({ data: {
-        number: r.number ?? r.Número ?? null, clientId: client.id, vendorId: userId,
-        sellerName: r.sellerName ?? r["Vendedor"] ?? null,
+        number: toNullableText(r.number ?? r.Número ?? null), clientId: client.id, vendorId: userId,
+        sellerName: toNullableText(r.sellerName ?? r["Vendedor"] ?? null),
         startDate: Number.isNaN(start.getTime()) ? new Date() : start,
         endDate: Number.isNaN(end.getTime()) ? new Date() : end,
-        mediaType: (["spot","sponsorship","testimonial","other"].includes(String(r.mediaType)) ? String(r.mediaType) : "spot") as any,
+        mediaType: ["spot","sponsorship","testimonial","other"].includes(String(r.mediaType)) ? String(r.mediaType) : "spot",
         insertions: r.insertions ? Number(r.insertions) : null,
-        timeSlots: r.timeSlots ?? r.Horários ?? null,
+        timeSlots: toNullableText(r.timeSlots ?? r.Horários ?? null),
         value: r.value ? Number(r.value) : null,
-        notes: r.notes ?? null,
+        notes: toNullableText(r.notes ?? null),
       }});
       seen.add(key); count++;
       await markJobProgress(jobId, i + 1, safeRows.length, `Importando ${i + 1}/${safeRows.length}`);
@@ -291,7 +306,7 @@ export async function startSyncGoogleIntegrationJobAction() {
   return { jobId: job.id };
 }
 
-export async function startImportClientsJobAction(rows: any[]) {
+export async function startImportClientsJobAction(rows: Record<string, unknown>[]) {
   const user = await getUser();
   const safeRows = Array.isArray(rows) ? rows.slice(0, 500) : [];
   const job = await createBackgroundJob(user.id, "import_clients", "Importar clientes", safeRows.length);
@@ -299,7 +314,7 @@ export async function startImportClientsJobAction(rows: any[]) {
   return { jobId: job.id };
 }
 
-export async function startImportContractsJobAction(rows: any[]) {
+export async function startImportContractsJobAction(rows: Record<string, unknown>[]) {
   const user = await getUser();
   const safeRows = Array.isArray(rows) ? rows.slice(0, 500) : [];
   const job = await createBackgroundJob(user.id, "import_contracts", "Importar contratos", safeRows.length);

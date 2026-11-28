@@ -1,54 +1,44 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Bell, Menu, LayoutDashboard, Users, CalendarDays, FileText, Settings, LogOut, Radio, Trash2, Loader2, FileSpreadsheet } from "lucide-react";
+import { Bell, Menu, LogOut, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
+import { toast } from "@/components/ui/toast";
 import { getUnreadNotificationsAction } from "@/app/actions/notifications";
 import { clearCompletedBackgroundJobsAction, getBackgroundJobsAction } from "@/app/actions/background-jobs";
 import { BackgroundJobStatus } from "@/components/settings/background-job-status";
 import { cn } from "@/lib/utils";
+import { isNavItemActive, navGroups } from "@/lib/navigation";
 
-const navGroups = [
-  { label: "Principal", items: [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/clients", label: "Clientes", icon: Users },
-    { href: "/reminders", label: "Lembretes", icon: Bell },
-  ]},
-  { label: "Gestão", items: [
-    { href: "/contracts", label: "Contratos", icon: FileText },
-    { href: "/spreadsheet", label: "Planilha", icon: FileSpreadsheet },
-    { href: "/trash", label: "Lixeira", icon: Trash2 },
-  ]},
-  { label: "Configurações", items: [
-    { href: "/settings", label: "Configurações", icon: Settings },
-  ]},
-];
+type BackgroundJob = Awaited<ReturnType<typeof getBackgroundJobsAction>>[number];
 
 export function Topbar({ user, notifications }: { user: { name?: string | null; email?: string | null; image?: string | null }; notifications?: { id: string; title: string; message: string; read: boolean; link: string | null; createdAt: Date | string }[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<BackgroundJob[]>([]);
   const initials = (user.name ?? user.email ?? "U").slice(0, 2).toUpperCase();
+  const unreadCount = notifications?.filter((n) => !n.read).length ?? 0;
+
+  const refreshJobs = useCallback(async () => {
+    try {
+      setJobs(await getBackgroundJobsAction());
+    } catch {
+      toast.add({ title: "Erro", description: "Não foi possível atualizar as tarefas em segundo plano." });
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    async function loadJobs() {
-      try {
-        const j = await getBackgroundJobsAction();
-        if (active) setJobs(j as any[]);
-      } catch {}
-    }
-    loadJobs();
-    const t = setInterval(loadJobs, 4000);
-    return () => { active = false; clearInterval(t); };
-  }, []);
+    queueMicrotask(() => void refreshJobs());
+    const t = setInterval(() => void refreshJobs(), 4000);
+    return () => clearInterval(t);
+  }, [refreshJobs]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
@@ -99,13 +89,13 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
       <div className="flex items-center gap-2">
         <Sheet open={open} onOpenChange={setOpen}>
           <Button variant="ghost" size="icon" className="md:hidden h-9 w-9" aria-label="Menu" onClick={() => setOpen(true)}>
-            <Menu className="h-5 w-5" />
+            <Menu className="h-5 w-5" aria-hidden="true" />
           </Button>
           <SheetContent side="left" className="w-72 p-0">
             <SheetHeader className="px-5 py-5 border-b">
               <SheetTitle className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Radio className="h-5 w-5" />
+                  <Radio className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div className="text-left">
                   <div className="font-semibold text-sm">Raysse Manager</div>
@@ -113,24 +103,25 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
                 </div>
               </SheetTitle>
             </SheetHeader>
-            <nav className="px-3 py-3 space-y-3">
-              {navGroups.map((group: any) => (
+            <nav aria-label="Navegação principal" className="px-3 py-3 space-y-3">
+              {navGroups.map((group) => (
                 <div key={group.label} className="space-y-1">
                   <div className="px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</div>
-                  {group.items.map((it: any) => {
+                  {group.items.map((it) => {
                     const Icon = it.icon;
-                    const active = pathname === it.href || pathname?.startsWith(it.href + "/");
+                    const active = isNavItemActive(pathname, it.href);
                     return (
                       <Link
                         key={it.href}
                         href={it.href}
+                        aria-current={active ? "page" : undefined}
                         onClick={() => setOpen(false)}
                         className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           active ? "bg-primary/10 text-primary font-medium" : "text-foreground/80 hover:bg-muted"
                         )}
                       >
-                        <Icon className="h-4 w-4" /> {it.label}
+                        <Icon className="h-4 w-4" aria-hidden="true" /> {it.label}
                       </Link>
                     );
                   })}
@@ -142,7 +133,7 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
                 onClick={() => signOut({ callbackUrl: "/login" })}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
-                <LogOut className="h-4 w-4" /> Sair
+                <LogOut className="h-4 w-4" aria-hidden="true" /> Sair
               </button>
             </div>
           </SheetContent>
@@ -157,30 +148,57 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
           const r = 16; const c = 2 * Math.PI * r; const off = c - (avg / 100) * c;
           return (
             <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-muted relative" aria-label="Progresso">
-                <svg width="36" height="36" viewBox="0 0 36 36" className="-rotate-90">
-                  <circle cx="18" cy="18" r={r} stroke="currentColor" strokeWidth="3" fill="none" className="text-muted/40" />
-                  <circle cx="18" cy="18" r={r} stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" className="text-primary transition-all" />
-                </svg>
-                <span className="absolute text-[9px] font-medium">{avg}%</span>
+              <DropdownMenuTrigger
+                className="inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-muted relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`Progresso em segundo plano: ${avg}%${activeJobs.length ? `, ${activeJobs.length} tarefa(s) em andamento` : ""}`}
+              >
+                <span
+                  role="progressbar"
+                  aria-label="Progresso médio das tarefas"
+                  aria-valuenow={avg}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="inline-flex"
+                >
+                  <svg width="36" height="36" viewBox="0 0 36 36" className="-rotate-90" aria-hidden="true">
+                    <circle cx="18" cy="18" r={r} stroke="currentColor" strokeWidth="3" fill="none" className="text-muted/40" />
+                    <circle cx="18" cy="18" r={r} stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" className="text-primary transition-all motion-reduce:transition-none" />
+                  </svg>
+                  <span className="absolute text-[9px] font-medium" aria-hidden="true">{avg}%</span>
+                </span>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-sm sm:w-96 p-2">
                 <DropdownMenuGroup><DropdownMenuLabel>Progresso em segundo plano</DropdownMenuLabel></DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <div className="space-y-2 max-h-96 overflow-y-auto p-1">
-                  {jobs.map((j) => <BackgroundJobStatus key={j.id} jobId={j.id} onDone={() => { getBackgroundJobsAction().then((r) => setJobs(r as any[])).catch(() => {}); }} />)}
+                  {jobs.map((j) => <BackgroundJobStatus key={j.id} jobId={j.id} onDone={refreshJobs} />)}
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={async () => { await clearCompletedBackgroundJobsAction(); const r = await getBackgroundJobsAction(); setJobs(r as any[]); }}>Limpar concluídas</DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    try {
+                      await clearCompletedBackgroundJobsAction();
+                      await refreshJobs();
+                      toast.add({ title: "Tarefas concluídas removidas" });
+                    } catch (error) {
+                      toast.add({ title: "Erro", description: error instanceof Error ? error.message : "Erro inesperado." });
+                    }
+                  }}
+                >
+                  Limpar concluídas
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           );
         })()}
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-muted relative" aria-label="Notificações">
-              <Bell className="h-4 w-4" />
-              {(notifications?.filter((n) => !n.read).length ?? 0) > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
+          <DropdownMenuTrigger
+            className="inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-muted relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`Notificações${unreadCount ? `, ${unreadCount} não lida(s)` : ""}`}
+          >
+              <Bell className="h-4 w-4" aria-hidden="true" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" aria-hidden="true" />
               )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-sm sm:w-80">
@@ -200,7 +218,7 @@ export function Topbar({ user, notifications }: { user: { name?: string | null; 
           </DropdownMenuContent>
         </DropdownMenu>
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-2 rounded-full pl-1 pr-3 py-1 hover:bg-muted transition-colors">
+          <DropdownMenuTrigger aria-label="Menu do usuário" className="flex items-center gap-2 rounded-full pl-1 pr-3 py-1 hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Avatar className="h-8 w-8">
               <AvatarImage src={user.image ?? undefined} />
               <AvatarFallback className="text-xs bg-primary/10 text-primary">{initials}</AvatarFallback>

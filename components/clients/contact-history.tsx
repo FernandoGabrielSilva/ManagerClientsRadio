@@ -6,8 +6,9 @@ import { addContactHistoryAction } from "@/app/actions/contracts";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ContactHistory, User } from "@/generated/prisma/client";
 
-export function ContactHistorySection({ clientId, histories }: { clientId: string; histories: any[] }) {
+export function ContactHistorySection({ clientId, histories }: { clientId: string; histories: (ContactHistory & { vendor: User | null })[] }) {
   const router = useRouter();
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(false);

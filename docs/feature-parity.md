@@ -22,7 +22,7 @@ Documento de referência para garantir que módulos com funcionalidades semelhan
 - Calendário mensal + agenda do dia alimentados pelos mesmos eventos persistidos dos clientes.
 - Ações pendentes (último contato, próximo contato, próxima ação, vídeos, contatos atrasados e mudança de anúncio) derivadas dos eventos de hoje.
 - Lembretes recentes ao lado dos contratos próximos do vencimento (PI, cliente e dias restantes), com filtro por quantidade de dias e lista rolável.
-- Exclusão de evento personalizado com `AlertDialog`; eventos automáticos dos clientes não são excluíveis manualmente.
+- Exclusão de evento personalizado e de lembrete com `AlertDialog`; eventos automáticos dos clientes não são excluíveis manualmente.
 
 ### Clientes (`/clients`, `/clients/new`, `/clients/[id]`)
 - Lista com busca, filtros, sort, paginação, seleção em massa.
@@ -66,7 +66,7 @@ Documento de referência para garantir que módulos com funcionalidades semelhan
 ### Configurações (`/settings`)
 - Abas: Perfil, Senha, Tema, Integrações, Notificações, Tarefas, Usuários (admin).
 - Perfil, senha, tema (presets/cor/modo), Google Calendar, notificações, jobs, papéis.
-- Abas controladas por estado (não usa `Tabs`).
+- Abas controladas por estado (não usa `Tabs`), com `role="tablist"`, `aria-selected`, `aria-controls` e navegação por setas/Home/End.
 
 ### Notificações (`/notifications`)
 - Feed de notificações; marcar como lida/todas.
@@ -81,17 +81,18 @@ Arquivos de referência:
 - `components/trash/trash-view.tsx`
 
 Elementos comuns:
-- `Input` de busca textual sobre múltiplos campos.
-- `Select` de filtros (status, tipo, responsável).
-- `SortFilter` no formato `campo|direção`.
-- Abas de visão em formato pill (`active`/`archived`).
+- `Input type="search"` com `aria-label` para busca textual sobre múltiplos campos.
+- `Select` de filtros (status, tipo, responsável) com `aria-label` no `SelectTrigger`.
+- `SortFilter` no formato `campo|direção`; página resetada para 1 no próprio handler (sem `useEffect` + `setState`).
+- Abas de visão em formato pill (`active`/`archived`) com `aria-current`.
 - Paginação client-side compartilhada (`components/ui/pagination.tsx`), padrão 30 itens com seletor 10/30/50/100.
-- Seleção por long-press (450ms) e checkbox no cabeçalho.
-- Barra de ações em massa quando `selected.size > 0`.
-- Confirmação destrutiva em diálogo.
+- Seleção por long-press (450ms) e checkbox no cabeçalho com estado `indeterminate` e `aria-label`.
+- Barra de ações em massa quando `selected.size > 0`, com “Limpar seleção”.
+- Acesso por teclado à navegação via `button` na célula identificadora (sem `cursor-pointer` na linha).
+- Confirmação destrutiva via `AlertDialog`, com `try/catch/finally` e toast de erro.
 - Estado vazio explícito.
 - Tabela com container único de scroll (`overflow-auto`) e `min-w-[700–900px]`.
-- Badges de status com variantes.
+- Badges de status com variantes e texto (não apenas cor).
 
 ## Regras de paridade
 
@@ -107,10 +108,8 @@ Elementos comuns:
 
 ## Desvios conhecidos (corrigir apenas quando o arquivo for tocado, com aprovação)
 
-- Configurações usam abas controladas por estado em vez de `Tabs` do shadcn.
-- Confirmações destrutivas ainda usam `Dialog`; o padrão-alvo é `AlertDialog`.
+- Configurações usam abas controladas por estado em vez de `Tabs` do shadcn (com ARIA e navegação por teclado).
 - Contratos não têm página dedicada de criação (`/contracts/new` redireciona).
-- `ClientForm` não aceita `onCancel`; `ContractForm` aceita.
 - Cabeçalho de detalhe de cliente usa avatar circular; contrato usa ícone quadrado.
 - Lembretes usam `Input type="date"` em vez de `Calendar`/`Popover`.
 - Lembretes não têm exportação/importação.

@@ -5,7 +5,6 @@ import { prisma } from "@/lib/db";
 import { reminderSchema } from "@/lib/validators";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { Prisma } from "@/generated/prisma/client";
 
 async function getUserId() {
   const session = await auth();

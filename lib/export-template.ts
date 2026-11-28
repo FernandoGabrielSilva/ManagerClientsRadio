@@ -1,7 +1,16 @@
 import * as XLSX from "xlsx-js-style";
 import type { WorkbookData } from "./export-workbook";
 
-type Cell = any;
+type TemplateCell = {
+  f?: string;
+  t?: XLSX.ExcelDataType | "str";
+  v?: string | number | boolean | Date;
+  z?: string;
+};
+
+type WorkBookWithCalcPr = XLSX.WorkBook & { calcPr?: { fullCalcOnLoad: boolean } };
+
+type TemplateWriteOptions = XLSX.WritingOptions & { cellStyles?: boolean };
 
 function serial(date: string | Date | null | undefined): number | null {
   if (!date) return null;
@@ -12,8 +21,8 @@ function serial(date: string | Date | null | undefined): number | null {
 
 function put(ws: XLSX.WorkSheet, r: number, c: number, value: unknown, formula?: string) {
   const addr = XLSX.utils.encode_cell({ r, c });
-  const existing = (ws[addr] as Cell) ?? {};
-  const cell: Cell = { ...existing };
+  const existing = (ws[addr] as TemplateCell | undefined) ?? {};
+  const cell: TemplateCell = { ...existing };
   if (formula) {
     cell.f = formula;
     cell.t = "str";
@@ -73,14 +82,14 @@ export async function exportTemplateWorkbook(data: WorkbookData) {
     if (lastSerial != null) put(prospection, r, 7, ""); // placeholder
     // dates as serial numbers to preserve format
     if (lastSerial != null) {
-      const cell = prospection[XLSX.utils.encode_cell({ r, c: 7 })];
+      const cell = prospection[XLSX.utils.encode_cell({ r, c: 7 })] as TemplateCell;
       cell.t = "n"; cell.v = lastSerial; cell.z = "dd/mm/yyyy";
     }
     put(prospection, r, 8, client.contactType ?? "");
     put(prospection, r, 9, client.nextAction ?? "");
     put(prospection, r, 10, client.contactFrequencyDays ?? 14);
     if (nextDateSerial != null) {
-      const cell = prospection[XLSX.utils.encode_cell({ r, c: 11 })];
+      const cell = prospection[XLSX.utils.encode_cell({ r, c: 11 })] as TemplateCell;
       cell.t = "n"; cell.v = nextDateSerial; cell.z = "dd/mm/yyyy";
     }
     put(prospection, r, 13, client.notes ?? "");
@@ -107,7 +116,7 @@ export async function exportTemplateWorkbook(data: WorkbookData) {
     put(clients, r, 8, client.responsible ?? "");
     const lastSerial = serial(client.lastContactAt ?? null);
     if (lastSerial != null) {
-      const cell = clients[XLSX.utils.encode_cell({ r, c: 9 })];
+      const cell = clients[XLSX.utils.encode_cell({ r, c: 9 })] as TemplateCell;
       cell.t = "n"; cell.v = lastSerial; cell.z = "dd/mm/yyyy";
     }
     put(clients, r, 10, client.nextAction ?? "");
@@ -132,13 +141,13 @@ export async function exportTemplateWorkbook(data: WorkbookData) {
     put(contracts, r, 3, contract.program ?? "");
     const startSerial = serial(contract.startDate ?? null);
     if (startSerial != null) {
-      const cell = contracts[XLSX.utils.encode_cell({ r, c: 4 })];
+      const cell = contracts[XLSX.utils.encode_cell({ r, c: 4 })] as TemplateCell;
       cell.t = "n"; cell.v = startSerial; cell.z = "dd/mm/yyyy";
     }
     put(contracts, r, 5, contract.durationMonths ?? "");
     // G: Data de Término (Auto) formula
     const gAddr = XLSX.utils.encode_cell({ r, c: 6 });
-    const gCell = contracts[gAddr] ?? {};
+    const gCell: TemplateCell = (contracts[gAddr] as TemplateCell | undefined) ?? {};
     gCell.f = `IF(AND(E${r + 1}<>\"\",F${r + 1}<>\"\"),EDATE(E${r + 1},F${r + 1}),\"\")`;
     gCell.t = "n";
     const endSerial = serial(contract.endDate ?? null);
@@ -151,7 +160,7 @@ export async function exportTemplateWorkbook(data: WorkbookData) {
     put(contracts, r, 10, contract.timeSlots ?? "");
     // L: Dias Restantes formula
     const lAddr = XLSX.utils.encode_cell({ r, c: 11 });
-    const lCell = contracts[lAddr] ?? {};
+    const lCell: TemplateCell = (contracts[lAddr] as TemplateCell | undefined) ?? {};
     lCell.f = `IF(G${r + 1}=\"\",\"\",G${r + 1}-'DASHBOARD & LEMBRETES'!$B$4)`;
     lCell.t = "n";
     const days = contract.endDate ? Math.round((new Date(contract.endDate).getTime() - Date.now()) / 86400000) : "";
@@ -161,14 +170,14 @@ export async function exportTemplateWorkbook(data: WorkbookData) {
     put(contracts, r, 13, contract.totalValue ?? "");
     // O: Status Visual formula
     const oAddr = XLSX.utils.encode_cell({ r, c: 14 });
-    const oCell = contracts[oAddr] ?? {};
+    const oCell: TemplateCell = (contracts[oAddr] as TemplateCell | undefined) ?? {};
     oCell.f = `IF(L${r + 1}=\"\",\"\",IF(L${r + 1}<0,\"Vencido\",IF(L${r + 1}<=30,\"Perto de Vencer\",\"Ativo\")))`;
     oCell.t = "str";
     oCell.v = contract.status === "expired" ? "Vencido" : contract.status === "near_expiry" ? "Perto de Vencer" : "Ativo";
     contracts[oAddr] = oCell;
     // P: Alerta Renovação formula
     const pAddr = XLSX.utils.encode_cell({ r, c: 15 });
-    const pCell = contracts[pAddr] ?? {};
+    const pCell: TemplateCell = (contracts[pAddr] as TemplateCell | undefined) ?? {};
     pCell.f = `IF(L${r + 1}=\"\",\"\",IF(L${r + 1}<0,\"VENCIDO\",IF(L${r + 1}<=5,\"ALERTA 5 DIAS\",IF(L${r + 1}<=15,\"ALERTA 15 DIAS\",IF(L${r + 1}<=30,\"ALERTA 30 DIAS\",\"Vigente (>30d)\")))))`;
     pCell.t = "str";
     contracts[pAddr] = pCell;
@@ -188,24 +197,24 @@ export async function exportTemplateWorkbook(data: WorkbookData) {
     const r = calRow;
     const dateSerial = serial(event.start);
     if (dateSerial != null) {
-      const cell = calendar[XLSX.utils.encode_cell({ r, c: 0 })];
+      const cell = calendar[XLSX.utils.encode_cell({ r, c: 0 })] as TemplateCell;
       cell.t = "n"; cell.v = dateSerial; cell.z = "dd/mm/yyyy";
     }
     // B: Dia da Semana formula
     const bAddr = XLSX.utils.encode_cell({ r, c: 1 });
-    const bCell = calendar[bAddr] ?? {};
+    const bCell: TemplateCell = (calendar[bAddr] as TemplateCell | undefined) ?? {};
     bCell.f = `IF(A${r + 1}=\"\",\"\",TEXT(A${r + 1},\"dddd\"))`;
     bCell.t = "str";
     calendar[bAddr] = bCell;
     // C: Semana / Mês formula
     const cAddr = XLSX.utils.encode_cell({ r, c: 2 });
-    const cCell = calendar[cAddr] ?? {};
+    const cCell: TemplateCell = (calendar[cAddr] as TemplateCell | undefined) ?? {};
     cCell.f = `IF(A${r + 1}=\"\",\"\",\"Sem \" & ISOWEEKNUM(A${r + 1}) & \" - \" & PROPER(TEXT(A${r + 1},\"mmmm/yy\")))`;
     cCell.t = "str";
     calendar[cAddr] = cCell;
     // D: Status Prazo formula
     const dAddr = XLSX.utils.encode_cell({ r, c: 3 });
-    const dCell = calendar[dAddr] ?? {};
+    const dCell: TemplateCell = (calendar[dAddr] as TemplateCell | undefined) ?? {};
     dCell.f = `IF(A${r + 1}=\"\",\"\",IF(A${r + 1}<'DASHBOARD & LEMBRETES'!$B$4,\"Atrasado\",IF(A${r + 1}='DASHBOARD & LEMBRETES'!$B$4,\"HOJE\",\"Agendado\")))`;
     dCell.t = "str";
     calendar[dAddr] = dCell;
@@ -234,8 +243,8 @@ export async function exportTemplateWorkbook(data: WorkbookData) {
     if (calRow > calendarEnd) break;
   }
 
-  (wb as any).calcPr = { fullCalcOnLoad: true };
-  const out = XLSX.write(wb, { bookType: "xlsx", type: "array", cellStyles: true } as any);
+  (wb as WorkBookWithCalcPr).calcPr = { fullCalcOnLoad: true };
+  const out = XLSX.write(wb, { bookType: "xlsx", type: "array", cellStyles: true } as TemplateWriteOptions);
   if (typeof document !== "undefined") {
     const blob = new Blob([out], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);

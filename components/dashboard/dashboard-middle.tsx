@@ -18,6 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { listEventsAction, deleteEventAction } from "@/app/actions/events";
+import { toast } from "@/components/ui/toast";
 import { isManagedClientEventTitle } from "@/lib/client-events";
 import { formatDate } from "@/lib/date-utils";
 import { isSameDay } from "date-fns";
@@ -47,16 +48,24 @@ export function DashboardMiddle({
 
   useEffect(() => {
     let active = true;
-    void fetchEvents(date).then((evs) => {
-      if (active) setEvents(evs);
-    });
+    void fetchEvents(date)
+      .then((evs) => {
+        if (active) setEvents(evs);
+      })
+      .catch(() => {
+        if (active) toast.add({ title: "Erro", description: "Não foi possível carregar os eventos do calendário." });
+      });
     return () => {
       active = false;
     };
   }, [date, syncKey, fetchEvents]);
 
   async function load(d: Date) {
-    setEvents(await fetchEvents(d));
+    try {
+      setEvents(await fetchEvents(d));
+    } catch {
+      toast.add({ title: "Erro", description: "Não foi possível recarregar os eventos." });
+    }
   }
 
   function eventLocalDate(event: CalendarEvent) {
@@ -131,7 +140,7 @@ export function DashboardMiddle({
                             variant="ghost"
                             aria-label={`Excluir evento ${event.title}`}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
                           </Button>
                         }
                       />
@@ -147,9 +156,17 @@ export function DashboardMiddle({
                           <AlertDialogAction
                             variant="destructive"
                             onClick={async () => {
-                              await deleteEventAction(event.id);
-                              await load(date);
-                              router.refresh();
+                              try {
+                                await deleteEventAction(event.id);
+                                await load(date);
+                                router.refresh();
+                                toast.add({ title: "Evento excluído" });
+                              } catch (error) {
+                                toast.add({
+                                  title: "Erro",
+                                  description: error instanceof Error ? error.message : "Erro inesperado.",
+                                });
+                              }
                             }}
                           >
                             Excluir

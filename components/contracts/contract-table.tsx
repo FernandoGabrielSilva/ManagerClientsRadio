@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -10,16 +10,31 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SortFilter } from "@/components/ui/sort-filter";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { formatDate } from "@/lib/date-utils";
 import { differenceInDays } from "date-fns";
 import { toast } from "@/components/ui/toast";
 import { archiveContractsAction, deleteContractsAction, restoreContractsAction, permanentDeleteContractsAction } from "@/app/actions/contracts";
 import { ContractForm } from "@/components/contracts/contract-form";
 import { Pencil } from "lucide-react";
+import type { Contract } from "@/generated/prisma/client";
 
+type ContractRow = Contract & {
+  client?: { id: string; name: string | null } | null;
+  vendor?: { name: string | null } | null;
+};
 
-export function ContractTable({ contracts, clients = [], view = "active" }: { contracts: any[]; clients?: { id: string; name: string }[]; view?: string }) {
+export function ContractTable({ contracts, clients = [], view = "active" }: { contracts: ContractRow[]; clients?: { id: string; name: string }[]; view?: string }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -27,7 +42,7 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
   const [sort, setSort] = useState("endDate|asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ type: string; open: boolean }>({ type: "", open: false });
-  const [editContract, setEditContract] = useState<any | null>(null);
+  const [editContract, setEditContract] = useState<ContractRow | null>(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -37,7 +52,7 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
 
   const types = useMemo(() => Array.from(new Set(contracts.map((c) => c.mediaType as string).filter(Boolean))), [contracts]);
 
-  function contractStatus(c: any) {
+  function contractStatus(c: ContractRow) {
     const days = differenceInDays(new Date(c.endDate), new Date());
     return days < 0 ? "Vencido" : days <= 30 ? "Perto de Vencer" : "Ativo";
   }
@@ -60,8 +75,6 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
       return dir === "desc" ? -cmp : cmp;
     });
 
-  useEffect(() => { setPage(1); }, [query, typeFilter, statusFilter]);
-
   if (contracts.length === 0) {
     return <div className="border rounded-lg p-8 text-sm text-muted-foreground text-center">Nenhum contrato cadastrado.</div>;
   }
@@ -71,6 +84,7 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
   const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const allSelected = paged.length > 0 && paged.every((c) => selected.has(c.id));
+  const someSelected = paged.some((c) => selected.has(c.id)) && !allSelected;
 
   function toggleAll() {
     const next = new Set(selected);
@@ -113,7 +127,6 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
   function onRowPointerUp() { clearLongPress(); }
   function onRowClick(id: string) {
     if (longPressFired.current) { longPressFired.current = false; return; }
-    if (selected.size > 0) { toggle(id); return; }
     router.push(`/contracts/${id}`);
   }
 
@@ -135,26 +148,38 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
       toast.add({ title: "Concluído" });
       setSelected(new Set());
       router.refresh();
-    } catch (e) {
-      toast.add({ title: "Erro", description: String(e) });
+    } catch (error) {
+      toast.add({ title: "Erro", description: error instanceof Error ? error.message : "Erro inesperado." });
+    } finally {
+      setLoading(false);
+      setConfirm({ type: "", open: false });
     }
-    setLoading(false);
-    setConfirm({ type: "", open: false });
   }
 
   return (
     <div className="p-4 space-y-3">
       <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
-        <Input placeholder="Pesquisar contratos..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-full sm:max-w-xs" />
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "all")}>
-          <SelectTrigger className="w-full sm:w-40"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
+        <Input
+          type="search"
+          aria-label="Pesquisar contratos"
+          placeholder="Pesquisar contratos..."
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+          className="w-full sm:max-w-xs"
+        />
+        <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v ?? "all"); setPage(1); }}>
+          <SelectTrigger className="w-full sm:w-40" aria-label="Filtrar por tipo de mídia">
+            <SelectValue placeholder="Todos tipos" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos tipos</SelectItem>
             {types.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
-          <SelectTrigger className="w-full sm:w-44"><SelectValue>{(v: any) => v === "all" || v == null ? "Todos" : v}</SelectValue></SelectTrigger>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v ?? "all"); setPage(1); }}>
+          <SelectTrigger className="w-full sm:w-44" aria-label="Filtrar por status">
+            <SelectValue placeholder="Todos status" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos status</SelectItem>
             <SelectItem value="Ativo">Ativo</SelectItem>
@@ -164,7 +189,7 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
         </Select>
         <SortFilter
           value={sort}
-          onChange={(v) => setSort(v ?? "endDate|asc")}
+          onChange={(v) => { setSort(v ?? "endDate|asc"); setPage(1); }}
           fields={[
             { value: "endDate", label: "Término" },
             { value: "startDate", label: "Início" },
@@ -176,6 +201,7 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
             {view === "active" && (
               <>
                 <Button size="sm" variant="outline" onClick={() => setConfirm({ type: "archive", open: true })}>Arquivar</Button>
@@ -204,11 +230,15 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
         aria-label="Lista de contratos"
         tabIndex={0}
       >
-        <Table className="min-w-[900px] w-full">
+        <Table className="min-w-[700px] w-full">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-10">
-                <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
+                <Checkbox
+                  checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                  onCheckedChange={toggleAll}
+                  aria-label="Selecionar todos os contratos desta página"
+                />
               </TableHead>
               <TableHead>Número</TableHead>
               <TableHead>Cliente</TableHead>
@@ -220,18 +250,18 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
               <TableHead className="text-right">Término</TableHead>
               <TableHead className="text-right">Dias</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-10"></TableHead>
+              <TableHead className="w-10 text-right"><span className="sr-only">Ações</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paged.map((c) => {
               const days = differenceInDays(new Date(c.endDate), new Date());
               const status = days < 0 ? "Vencido" : days <= 30 ? "Perto de Vencer" : "Ativo";
-              const variant = days < 0 ? "destructive" : days <= 30 ? "secondary" : "outline";
+              const variant: "destructive" | "secondary" | "outline" = days < 0 ? "destructive" : days <= 30 ? "secondary" : "outline";
               return (
                 <TableRow
                   key={c.id}
-                  className="cursor-pointer select-none"
+                  className="select-none"
                   onClick={() => onRowClick(c.id)}
                   onPointerDown={(e) => onRowPointerDown(e, c.id)}
                   onPointerMove={onRowPointerMove}
@@ -241,9 +271,26 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
                   onContextMenu={(e) => { if (longPressTimer.current || selected.size > 0) e.preventDefault(); }}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                    <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggle(c.id)} />
+                    <Checkbox
+                      checked={selected.has(c.id)}
+                      onCheckedChange={() => toggle(c.id)}
+                      aria-label={`Selecionar contrato ${c.number ?? c.id}`}
+                    />
                   </TableCell>
-                  <TableCell className="font-medium">{c.number ?? "—"}</TableCell>
+                  <TableCell
+                    className="font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      aria-label={`Abrir contrato ${c.number ?? c.id}`}
+                      className="rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => onRowClick(c.id)}
+                    >
+                      {c.number ?? "—"}
+                    </button>
+                  </TableCell>
                   <TableCell>{c.client?.name ?? "—"}</TableCell>
                   <TableCell>{c.sellerName ?? c.vendor?.name ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.program ?? "—"}</TableCell>
@@ -252,9 +299,16 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
                   <TableCell className="text-muted-foreground tabular-nums">{formatDate(c.startDate)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatDate(c.endDate)}</TableCell>
                   <TableCell className="text-right tabular-nums">{days}</TableCell>
-                  <TableCell><Badge variant={variant as any} className="font-normal">{status}</Badge></TableCell>
+                  <TableCell><Badge variant={variant} className="font-normal">{status}</Badge></TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                    <Button size="sm" variant="ghost" onClick={() => setEditContract(c)}><Pencil className="h-4 w-4" /></Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`Editar contrato ${c.number ?? c.id}`}
+                      onClick={() => setEditContract(c)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               );
@@ -285,16 +339,22 @@ export function ContractTable({ contracts, clients = [], view = "active" }: { co
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirm.open} onOpenChange={(o) => setConfirm((prev) => ({ ...prev, open: o }))}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Confirmar ação</DialogTitle></DialogHeader>
-          <p className="text-sm">Deseja {labels[confirm.type]} {selected.size} item(ns)?</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirm({ type: "", open: false })}>Cancelar</Button>
-            <Button variant="destructive" onClick={runAction} disabled={loading}>{loading ? "Processando..." : "Confirmar"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog open={confirm.open} onOpenChange={(o) => setConfirm((prev) => ({ ...prev, open: o }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar ação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja {labels[confirm.type]} {selected.size} item(ns)?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={runAction} disabled={loading}>
+              {loading ? "Processando..." : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

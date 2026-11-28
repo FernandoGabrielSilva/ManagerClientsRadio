@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -8,10 +8,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { toast } from "@/components/ui/toast";
-import { Trash2, RotateCcw } from "lucide-react";
 import { restoreTrashItemsAction, purgeTrashItemsAction, type TrashItemRef } from "@/app/actions/trash";
 
 type TrashItem = {
@@ -46,6 +54,7 @@ export function TrashView({ items }: { items: TrashItem[] }) {
   const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const allSelected = paged.length > 0 && paged.every((it) => selected.has(it.id));
+  const someSelected = paged.some((it) => selected.has(it.id)) && !allSelected;
 
   function toggleAll() {
     const next = new Set(selected);
@@ -71,11 +80,12 @@ export function TrashView({ items }: { items: TrashItem[] }) {
       toast.add({ title: "Concluído" });
       setSelected(new Set());
       router.refresh();
-    } catch (e) {
-      toast.add({ title: "Erro", description: String(e) });
+    } catch (error) {
+      toast.add({ title: "Erro", description: error instanceof Error ? error.message : "Erro inesperado." });
+    } finally {
+      setLoading(false);
+      setConfirm({ type: "", open: false });
     }
-    setLoading(false);
-    setConfirm({ type: "", open: false });
   }
 
   if (items.length === 0) {
@@ -85,9 +95,18 @@ export function TrashView({ items }: { items: TrashItem[] }) {
   return (
     <div className="p-4 space-y-3">
       <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
-        <Input placeholder="Pesquisar na lixeira..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-full sm:max-w-xs" />
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "all")}>
-          <SelectTrigger className="w-full sm:w-40"><SelectValue>{typeFilter === "all" ? "Todos" : typeFilter === "client" ? "Clientes" : typeFilter === "contract" ? "Contratos" : "Lembretes"}</SelectValue></SelectTrigger>
+        <Input
+          type="search"
+          aria-label="Pesquisar na lixeira"
+          placeholder="Pesquisar na lixeira..."
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+          className="w-full sm:max-w-xs"
+        />
+        <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v ?? "all"); setPage(1); }}>
+          <SelectTrigger className="w-full sm:w-40" aria-label="Filtrar por tipo">
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="client">Clientes</SelectItem>
@@ -98,6 +117,7 @@ export function TrashView({ items }: { items: TrashItem[] }) {
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
             <Button size="sm" variant="outline" onClick={() => setConfirm({ type: "restore", open: true })}>Restaurar</Button>
             <Button size="sm" variant="destructive" onClick={() => setConfirm({ type: "purge", open: true })}>Excluir permanentemente</Button>
           </div>
@@ -113,7 +133,13 @@ export function TrashView({ items }: { items: TrashItem[] }) {
         <Table className="min-w-[700px] w-full">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="w-10"><Checkbox checked={allSelected} onCheckedChange={toggleAll} /></TableHead>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                  onCheckedChange={toggleAll}
+                  aria-label="Selecionar todos os itens desta página"
+                />
+              </TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Item</TableHead>
               <TableHead>Detalhe</TableHead>
@@ -123,7 +149,13 @@ export function TrashView({ items }: { items: TrashItem[] }) {
           <TableBody>
             {paged.map((it) => (
               <TableRow key={it.id}>
-                <TableCell><Checkbox checked={selected.has(it.id)} onCheckedChange={() => toggle(it.id)} /></TableCell>
+                <TableCell>
+                  <Checkbox
+                    checked={selected.has(it.id)}
+                    onCheckedChange={() => toggle(it.id)}
+                    aria-label={`Selecionar ${it.typeLabel}: ${it.title}`}
+                  />
+                </TableCell>
                 <TableCell><Badge variant="outline">{it.typeLabel}</Badge></TableCell>
                 <TableCell className="font-medium">{it.title}</TableCell>
                 <TableCell className="text-muted-foreground">{it.subtitle}</TableCell>
@@ -148,16 +180,22 @@ export function TrashView({ items }: { items: TrashItem[] }) {
         />
       )}
 
-      <Dialog open={confirm.open} onOpenChange={(o) => setConfirm((prev) => ({ ...prev, open: o }))}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Confirmar ação</DialogTitle></DialogHeader>
-          <p className="text-sm">Deseja {confirm.type === "restore" ? "restaurar" : "excluir permanentemente"} {selected.size} item(ns)?</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirm({ type: "", open: false })}>Cancelar</Button>
-            <Button variant="destructive" onClick={runAction} disabled={loading}>{loading ? "Processando..." : "Confirmar"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog open={confirm.open} onOpenChange={(o) => setConfirm((prev) => ({ ...prev, open: o }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar ação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja {confirm.type === "restore" ? "restaurar" : "excluir permanentemente"} {selected.size} item(ns)?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={runAction} disabled={loading}>
+              {loading ? "Processando..." : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

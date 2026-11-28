@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Pencil } from "lucide-react";
 import { ClientForm } from "@/components/clients/client-form";
+import type { Client } from "@/generated/prisma/client";
 
-export function ClientEditDialog({ client, vendors }: { client: any; vendors: { id: string; name: string | null }[] }) {
+export function ClientEditDialog({ client, vendors }: { client: Client; vendors: { id: string; name: string | null }[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>

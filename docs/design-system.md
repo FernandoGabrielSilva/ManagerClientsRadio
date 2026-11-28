@@ -90,7 +90,8 @@ Regra: usar sempre tokens semânticos (`bg-primary`, `text-muted-foreground`, `b
 ## Layout
 
 - Sidebar desktop: `hidden md:flex w-64 flex-col border-r bg-sidebar`.
-- Sidebar mobile: `Sheet` left `w-72`, mesmo conteúdo.
+- Sidebar mobile: `Sheet` left `w-72`, mesmos grupos/itens de `lib/navigation.ts` (`navGroups`).
+- Item ativo com `aria-current="page"`; ícones decorativos com `aria-hidden="true"`.
 - Topbar: `sticky top-0 z-30 h-14 border-b bg-background/80 backdrop-blur-md px-4 md:px-6`.
 - Main: `flex-1 p-4 md:p-6`; container `mx-auto w-full space-y-6`.
 - Página de lista: toolbar → `Card overflow-hidden` → `CardContent p-0` → tabela.
@@ -141,6 +142,7 @@ Regra: usar sempre tokens semânticos (`bg-primary`, `text-muted-foreground`, `b
 ## Ícones
 
 - `lucide-react` exclusivamente.
+- Ícones decorativos / em botões com texto: `aria-hidden="true"`; botões só com ícone exigem `aria-label`.
 - Inline: `h-4 w-4`.
 - Tile/card: `h-5 w-5` ou `h-9 w-9`/`h-10 w-10`/`h-11 w-11` no container.
 - Ícone em botão: `mr-2` (com texto) ou centralizado (icon button).
@@ -158,7 +160,7 @@ Regra: usar sempre tokens semânticos (`bg-primary`, `text-muted-foreground`, `b
 - `app/(dashboard)/clients/page.tsx` + `components/clients/*` — lista CRUD canônica.
 - `app/(dashboard)/contracts/page.tsx` + `components/contracts/*` — lista CRUD com detalhe em cards.
 - `app/(dashboard)/dashboard/page.tsx` — visão geral com stats, calendário e listas.
-- `app/(dashboard)/settings/page.tsx` + `components/settings/settings-view.tsx` — página com abas (padrão-alvo: `Tabs`).
+- `app/(dashboard)/settings/page.tsx` + `components/settings/settings-view.tsx` — página com abas customizadas e ARIA (padrão-alvo: `Tabs`).
 
 ## Restrições
 
@@ -166,3 +168,6 @@ Regra: usar sempre tokens semânticos (`bg-primary`, `text-muted-foreground`, `b
 - Não alterar tokens globais para uma tela isolada.
 - Não trocar fonte, raio ou paleta sem pedido explícito.
 - Reutilizar `PageHeader`, `Card`, `Button`, `Table`, `Dialog`, `AlertDialog`, `Select`, `Input`, `Badge`, `toast`.
+- `Dialog` fica reservado a formulários/fluxos com múltiplas decisões; confirmações destrutivas usam `AlertDialog`.
+- Cores pontuais hardcoded (`text-emerald-500`, `text-amber-500`, `text-green-600`, `bg-sky-100`) são desvio conhecido; novos tokens só com pedido explícito.
+- Dark mode usa os mesmos tokens com variantes `.dark` e `.dark.theme-*` em OKLCH; não criar estilo novo por funcionalidade.

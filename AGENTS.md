@@ -104,3 +104,109 @@ Toda nova implementação deve seguir automaticamente:
 - [ ] Mantive o design system e a responsividade.
 - [ ] Garanti paridade com módulos equivalentes.
 - [ ] Atualizei a documentação se criei um novo padrão.
+
+<!-- project-rules -->
+# AGENTS.md — ManagerClientsRadio
+
+> Arquivo gerado automaticamente pelo bootstrap do OpenCode.
+> O marcador `<!-- project-rules -->` indica que as regras já foram aplicadas. Não remova.
+> Leia este arquivo e os documentos de `docs/` antes de qualquer implementação.
+
+## 1. Visão geral
+
+- **Projeto:** ManagerClientsRadio
+- **Stack detectada:** TypeScript + Next.js, React, React DOM, Tailwind CSS
+- **Tipo:** Frontend web
+- **Linguagem principal:** TypeScript
+- **Gerenciador de pacotes:** pnpm
+- **Interface:** Web
+- **Banco de dados:** Prisma
+- **Testes:** Não detectado
+
+## 2. Comandos do projeto
+
+| Ação | Comando |
+|---|---|
+| Instalar dependências | `pnpm install` |
+| Desenvolvimento | `pnpm run dev` |
+| Build | `pnpm run build` |
+| Lint | `pnpm run lint` |
+
+> Se algum comando estiver incorreto, corrija esta tabela e `docs/conventions.md`.
+
+## 3. Regras gerais obrigatórias
+
+- Leia `AGENTS.md` e `docs/architecture.md` antes de implementar.
+- Reutilize código, utilitários, serviços, componentes e padrões existentes antes de criar novos.
+- Siga o formatador, linter, type checker e test runner já configurados no projeto.
+- Não adicione dependências, bibliotecas ou padrões arquiteturais sem necessidade comprovada.
+- Trate erros explicitamente; não engula exceções.
+- Valide entradas em boundaries (API, CLI, formulários, arquivos, filas).
+- Nunca commite secrets, tokens, chaves ou dados sensíveis.
+- Adicione ou atualize testes para comportamentos novos ou alterados.
+- Mantenha logs úteis, sem dados sensíveis.
+- Quando estabelecer um padrão reutilizável, atualize `docs/`.
+- Não altere padrões existentes por iniciativa própria; mudanças exigem pedido explícito.
+
+## 4. Convenções da stack
+
+- Use TypeScript estrito; evite `any` sem justificativa.
+- Prefira tipos explícitos em APIs públicas e boundaries.
+- Trate erros como `unknown` e faça narrowing; não use `catch (e: any)`.
+- Use o formatador/linter configurado (ESLint, Prettier, Biome).
+- Prefira módulos ES e funções pequenas.
+- Use o linter/formatter configurado no projeto.
+- Trate erros explicitamente; não engula promises rejeitadas.
+- Evite estado global mutável e efeitos colaterais escondidos.
+- App Router: Server Components por padrão; use `"use client"` só quando necessário.
+- Mutações via Server Actions ou Route Handlers; valide a entrada.
+- Use `revalidatePath`/`revalidateTag` após mutações.
+- Não acesse segredos em componentes client.
+- Prefira componentes funcionais e hooks.
+- Evite estado derivado; calcule durante o render.
+- Use keys estáveis em listas.
+- Mantenha efeitos colaterais em `useEffect` com dependências corretas.
+
+## 5. Regras de interface
+
+### Design system
+- Leia `docs/design-system.md` antes de criar qualquer tela.
+- Reutilize tokens, cores, tipografia, espaçamentos, raios, sombras, ícones e layouts existentes.
+- Não invente um estilo novo por funcionalidade.
+- Preserve o padrão das páginas de referência do projeto.
+
+### Componentes
+- Use a biblioteca padrão do projeto (shadcn/ui quando aplicável).
+- `AlertDialog` para confirmações destrutivas; `Dialog` para formulários; `DropdownMenu` para ações; toast existente para notificações.
+- Nunca use `window.alert`, `window.confirm` ou `window.prompt`.
+- Não instale componentes duplicados nem altere componentes-base sem necessidade.
+
+### Paridade
+- Módulos/abas semelhantes devem ter os mesmos recursos (busca, filtros, ordenação, paginação, seleção, ações em massa, import/export, estados vazios, confirmações).
+- Diferenças exigem justificativa em `docs/feature-parity.md`.
+
+### Novas funcionalidades
+- Siga automaticamente: design system, componentes padrão, formulários, tabelas, filtros, confirmações, loading, notificações, responsividade e acessibilidade.
+- Use React Hook Form + Zod quando o projeto usar esse padrão.
+
+## 6. Documentação do projeto
+
+| Documento | Quando consultar |
+|---|---|
+| `docs/architecture.md` | Arquitetura, camadas, fluxo de dados e funcionalidades compartilhadas. |
+| `docs/conventions.md` | Convenções da linguagem, framework, formatação, lint, testes e erros. |
+| `docs/testing.md` | Estratégia e convenções de testes. |
+| `docs/design-system.md` | Tokens, tipografia, cores, espaçamento, layout e páginas de referência. |
+| `docs/component-patterns.md` | Tabelas, formulários, diálogos, notificações, loading e estados vazios. |
+| `docs/feature-parity.md` | Funcionalidades por módulo/aba e diferenças intencionais. |
+
+## 7. Checklist antes de concluir
+
+- [ ] Li `AGENTS.md` e os documentos relevantes de `docs/`.
+- [ ] Reutilizei código, componentes, serviços e padrões existentes.
+- [ ] Segui as convenções da linguagem/framework e o formatador/linter.
+- [ ] Adicionei/atualizei testes para o comportamento alterado.
+- [ ] Tratei erros, bordas e entradas inválidas.
+- [ ] Atualizei a documentação se criei um padrão reutilizável.
+- [ ] Verifiquei que não adicionei secrets ou dados sensíveis.
+- [ ] (UI) Verifiquei responsividade, acessibilidade, loading, vazio e erro.

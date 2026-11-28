@@ -25,7 +25,7 @@ export default async function RemindersPage({ searchParams }: { searchParams: Pr
   return (
     <div className="space-y-6">
       <PageHeader title="Lembretes" description="Crie, edite e exclua lembretes da sua agenda." />
-      <Card><CardContent className="p-0"><RemindersView reminders={reminders as any} clients={clients} view={view} /></CardContent></Card>
+      <Card><CardContent className="p-0"><RemindersView reminders={reminders} clients={clients} view={view} /></CardContent></Card>
     </div>
   );
 }

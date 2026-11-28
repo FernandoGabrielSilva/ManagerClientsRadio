@@ -222,7 +222,7 @@ export default async function DashboardPage({
                 <div
                   className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted ${s.tone}`}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs text-muted-foreground truncate">

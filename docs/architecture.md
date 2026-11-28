@@ -44,6 +44,7 @@ Páginas principais: `/dashboard`, `/clients`, `/clients/new`, `/clients/[id]`, 
 - `spreadsheet.ts`: modelo de 6 abas, `OPTION_LISTS`, `SHEET_LABELS`, `diffDays`, `toDate`.
 - `export-excel.ts`, `export-workbook.ts`, `export-template.ts`: exportação XLSX/PDF.
 - `color-utils.ts`: presets de tema e `applyThemeColor` (hex → OKLCH).
+- `navigation.ts`: grupos/itens da navegação principal e `isNavItemActive`; fonte única usada por sidebar e menu mobile.
 - `background-jobs.ts`: criação/execução de jobs.
 - `google-calendar.ts`: sincronização.
 
@@ -55,6 +56,7 @@ Páginas principais: `/dashboard`, `/clients`, `/clients/new`, `/clients/[id]`, 
 - Notificações in-app + navegador (service worker `/sw.js`).
 - Importação/exportação XLSX/PDF com modelo unificado.
 - Temas claro/escuro/presets persistidos no usuário.
+- Navegação principal compartilhada (`lib/navigation.ts`) entre desktop/mobile, com `aria-current="page"` no item ativo.
 - Lixeira unificada de clientes, contratos e lembretes.
 
 ## Convenções

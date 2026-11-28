@@ -163,7 +163,7 @@ export async function disconnectGoogleAction() {
 
 export async function updateUserRoleAction(userId: string, role: "admin" | "vendor") {
   const session = await auth();
-  const me = session?.user as any;
+  const me = session?.user as { role?: string } | undefined;
   if (me?.role !== "admin") throw new Error("Sem permissão");
   await prisma.user.update({ where: { id: userId }, data: { role } });
   revalidatePath("/settings");

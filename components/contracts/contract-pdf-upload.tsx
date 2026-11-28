@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { updateContractPdfAction } from "@/app/actions/contracts";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -14,15 +13,25 @@ export function ContractPdfUpload({ contractId }: { contractId: string }) {
     const file = e.target.files?.[0];
     if (!file) return;
     setLoading(true);
-    const b64 = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result).split(",")[1]);
-      reader.readAsDataURL(file);
-    });
-    await updateContractPdfAction(contractId, b64, file.name);
-    setLoading(false);
-    toast.add({ title: "PDF anexado" });
-    if (ref.current) ref.current.value = "";
+    try {
+      const b64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1]);
+        reader.onerror = () => reject(reader.error ?? new Error("Falha ao ler o arquivo."));
+        reader.readAsDataURL(file);
+      });
+      const res = await updateContractPdfAction(contractId, b64, file.name);
+      if (res && typeof res === "object" && "error" in res && res.error) {
+        toast.add({ title: "Erro", description: String(res.error) });
+      } else {
+        toast.add({ title: "PDF anexado" });
+        if (ref.current) ref.current.value = "";
+      }
+    } catch (error) {
+      toast.add({ title: "Erro", description: error instanceof Error ? error.message : "Erro inesperado." });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
