@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/generated/prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -19,9 +19,9 @@ async function main() {
   }
 
   const clientsData = [
-    { name: "Clínica Olhos Vida", company: "Clínica Olhos Vida", videoWeekday: 1, contactFrequencyDays: 14, contractStatus: "active" as const },
-    { name: "Ótica Central", company: "Ótica Central", videoWeekday: 3, contactFrequencyDays: 14, contractStatus: "active" as const },
-    { name: "Clínica Visão Plus", company: "Clínica Visão Plus", videoWeekday: 5, contactFrequencyDays: 21, contractStatus: "negotiation" as const },
+    { name: "Clínica Olhos Vida", company: "Clínica Olhos Vida", videoFrequency: "weekly" as const, videoWeekday: 1, contactFrequencyDays: 14, contractStatus: "active" as const },
+    { name: "Ótica Central", company: "Ótica Central", videoFrequency: "weekly" as const, videoWeekday: 3, contactFrequencyDays: 14, contractStatus: "active" as const },
+    { name: "Clínica Visão Plus", company: "Clínica Visão Plus", videoFrequency: "monthly" as const, videoWeekday: 5, contactFrequencyDays: 21, contractStatus: "negotiation" as const },
   ];
 
   const clients = [];
@@ -35,6 +35,7 @@ async function main() {
         company: c.company,
         phone: "(11) 99999-0000",
         email: "contato@exemplo.com",
+        videoFrequency: c.videoFrequency,
         videoWeekday: c.videoWeekday,
         lastContactAt: new Date(Date.now() - 20 * 86400000),
         contactFrequencyDays: c.contactFrequencyDays,

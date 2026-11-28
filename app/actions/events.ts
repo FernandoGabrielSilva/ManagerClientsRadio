@@ -4,13 +4,13 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { eventSchema } from "@/lib/validators";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar";
-import { formatDate, resolveNextContact } from "@/lib/date-utils";
+import { formatDate, nextMonthlyVideoDate, resolveNextContact } from "@/lib/date-utils";
 import {
   MANAGED_CLIENT_EVENT_PREFIXES,
   isManagedClientEventTitle,
 } from "@/lib/client-events";
 import { revalidatePath } from "next/cache";
-import type { EventType } from "@prisma/client";
+import type { EventType } from "@/generated/prisma/client";
 import { z } from "zod";
 
 async function getUserId() {
@@ -337,6 +337,7 @@ async function ensureClientContactEventsForUserInternal(userId: string, role?: s
       contactFrequencyDays: true,
       nextAction: true,
       nextActionDate: true,
+      videoFrequency: true,
       videoWeekday: true,
       needsAdChange: true,
       lastVideoSentAt: true,
@@ -461,28 +462,50 @@ async function ensureClientContactEventsForUserInternal(userId: string, role?: s
       if (result.created) created++;
     }
 
-    const weekdayMask = c.videoWeekday ?? 0;
-    const lastVideoDay = c.lastVideoSentAt
-      ? utcDay(new Date(c.lastVideoSentAt)).getTime()
-      : null;
-    for (let offset = 0; offset < 7; offset++) {
-      const videoDate = new Date(todayUtc.getTime() + offset * 86400000);
-      if ((weekdayMask & (1 << videoDate.getUTCDay())) === 0) continue;
-      if (lastVideoDay === videoDate.getTime()) continue;
-      const result = await upsertAutoEvent(userId, {
-        clientId: c.id,
-        type: "video",
-        start: videoDate,
-        titlePrefix: "Enviar vídeo:",
-        matchByStart: true,
-      }, {
-        title: `Enviar vídeo: ${c.name}`,
-        description: `Enviar vídeo para ${c.name} em ${formatDate(videoDate)}.`,
-        start: videoDate,
-        end: nextUtcDay(videoDate),
-      });
-      keepIds.push(result.id);
-      if (result.created) created++;
+    const videoFrequency = c.videoFrequency ?? "weekly";
+    const lastVideoSentAt = c.lastVideoSentAt ? new Date(c.lastVideoSentAt) : null;
+    const lastVideoDay = lastVideoSentAt ? utcDay(lastVideoSentAt).getTime() : null;
+    const windowEnd = new Date(todayUtc.getTime() + 7 * 86400000);
+
+    if (videoFrequency === "monthly") {
+      const videoDate = nextMonthlyVideoDate(lastVideoSentAt, todayUtc);
+      if (videoDate.getTime() < windowEnd.getTime() && lastVideoDay !== videoDate.getTime()) {
+        const result = await upsertAutoEvent(userId, {
+          clientId: c.id,
+          type: "video",
+          start: videoDate,
+          titlePrefix: "Enviar vídeo:",
+          matchByStart: true,
+        }, {
+          title: `Enviar vídeo: ${c.name}`,
+          description: `Enviar vídeo mensal para ${c.name} em ${formatDate(videoDate)}.`,
+          start: videoDate,
+          end: nextUtcDay(videoDate),
+        });
+        keepIds.push(result.id);
+        if (result.created) created++;
+      }
+    } else {
+      const weekdayMask = c.videoWeekday ?? 0;
+      for (let offset = 0; offset < 7; offset++) {
+        const videoDate = new Date(todayUtc.getTime() + offset * 86400000);
+        if ((weekdayMask & (1 << videoDate.getUTCDay())) === 0) continue;
+        if (lastVideoDay === videoDate.getTime()) continue;
+        const result = await upsertAutoEvent(userId, {
+          clientId: c.id,
+          type: "video",
+          start: videoDate,
+          titlePrefix: "Enviar vídeo:",
+          matchByStart: true,
+        }, {
+          title: `Enviar vídeo: ${c.name}`,
+          description: `Enviar vídeo semanal para ${c.name} em ${formatDate(videoDate)}.`,
+          start: videoDate,
+          end: nextUtcDay(videoDate),
+        });
+        keepIds.push(result.id);
+        if (result.created) created++;
+      }
     }
 
     if (c.needsAdChange) {

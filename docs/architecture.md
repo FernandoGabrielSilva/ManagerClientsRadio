@@ -26,7 +26,7 @@ Páginas principais: `/dashboard`, `/clients`, `/clients/new`, `/clients/[id]`, 
 
 ## Data Layer
 
-- `lib/db.ts`: Prisma client com adapter Neon.
+- `lib/db.ts`: Prisma client com adapter Neon; tipos e runtime vêm de `@/generated/prisma/client` (output configurado em `schema.prisma`), não do `@prisma/client`.
 - `prisma/schema.prisma`: modelos `User`, `Client`, `Contract`, `Reminder`, `Event`, `Notification`, `BackgroundJob`, `ContactHistory` etc.
 - Soft delete `deletedAt`; arquivamento `archivedAt`.
 - `lib/validators.ts`: schemas Zod (`clientSchema`, `contractSchema`, `reminderSchema`, `eventSchema`, `themeSchema`, `profileSchema`, `passwordSchema`, `loginSchema`, `registerSchema`).
@@ -40,7 +40,7 @@ Páginas principais: `/dashboard`, `/clients`, `/clients/new`, `/clients/[id]`, 
 
 ## Regras de negócio compartilhadas (`lib/`)
 
-- `date-utils.ts`: contato atrasado, vídeo do dia, contrato a vencer, próxima data, formatação.
+- `date-utils.ts`: contato atrasado, vídeo semanal/mensal do dia, contrato a vencer, próxima data, formatação.
 - `spreadsheet.ts`: modelo de 6 abas, `OPTION_LISTS`, `SHEET_LABELS`, `diffDays`, `toDate`.
 - `export-excel.ts`, `export-workbook.ts`, `export-template.ts`: exportação XLSX/PDF.
 - `color-utils.ts`: presets de tema e `applyThemeColor` (hex → OKLCH).
@@ -49,7 +49,7 @@ Páginas principais: `/dashboard`, `/clients`, `/clients/new`, `/clients/[id]`, 
 
 ## Funcionalidades compartilhadas
 
-- Eventos automáticos de cliente (`ensureClientContactEventsForUser`): último contato, próximo contato, próxima ação, vídeo, vencimento e mudança de anúncio; `Event` é a fonte única do calendário/agenda/ações pendentes do dashboard.
+- Eventos automáticos de cliente (`ensureClientContactEventsForUser`): último contato, próximo contato, próxima ação, vídeo semanal/mensal, vencimento e mudança de anúncio; `Event` é a fonte única do calendário/agenda/ações pendentes do dashboard.
 - Jobs em background para importação/sincronização; UI faz polling.
 - Google Calendar (opcional): criar/remover/sincronizar eventos.
 - Notificações in-app + navegador (service worker `/sw.js`).

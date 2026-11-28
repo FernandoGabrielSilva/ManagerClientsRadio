@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { BackgroundJobStatus, Prisma } from "@prisma/client";
+import { BackgroundJobStatus, Prisma } from "@/generated/prisma/client";
 
 export async function createBackgroundJob(userId: string, type: string, title: string, total = 0) {
   return prisma.backgroundJob.create({

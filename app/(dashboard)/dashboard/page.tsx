@@ -26,7 +26,7 @@ import { DashboardMiddle } from "@/components/dashboard/dashboard-middle";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ContractDaysFilter } from "@/components/dashboard/contract-days-filter";
-import type { Client, Contract } from "@prisma/client";
+import type { Client, Contract } from "@/generated/prisma/client";
 
 type ContractWithClient = Contract & { client: Client };
 
@@ -157,7 +157,9 @@ export default async function DashboardPage({
         c.contactFrequencyDays,
         c.nextAction,
         c.nextActionDate?.getTime(),
+        c.videoFrequency,
         c.videoWeekday,
+        c.lastVideoSentAt?.getTime(),
         c.needsAdChange,
       ].join(":"),
     ),

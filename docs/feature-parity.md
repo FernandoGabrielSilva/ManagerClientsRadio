@@ -31,7 +31,8 @@ Documento de referência para garantir que módulos com funcionalidades semelhan
 - Exportar Excel/PDF; importar planilha completa (clientes/contratos/agenda a partir do dashboard).
 - Criar (página e dialog), editar (dialog).
 - Detalhe: avatar, dados, ações de contato/vídeo/anúncio, histórico de contato.
-- Formulário completo com seções e máscaras.
+- Formulário completo com seções e máscaras; frequência do vídeo (`Semanal`/`Mensal`) com dias da semana condicionais.
+- Lista exibe `Mensal` ou os dias semanais na coluna `Vídeo`; planilha exporta/importa `Frequência Vídeo` e `Dias Vídeo`.
 
 ### Contratos (`/contracts`, `/contracts/[id]`)
 - Lista com busca, filtros, sort, paginação, seleção em massa.
@@ -124,4 +125,4 @@ Elementos comuns:
 - Notificações in-app + navegador.
 - Integração Google Calendar.
 - Importação/exportação XLSX/PDF com modelo unificado.
-- Eventos de clientes (último contato, próximo contato, próxima ação, vídeo, vencimento e mudança de anúncio) gerados/regenerados automaticamente.
+- Eventos de clientes (último contato, próximo contato, próxima ação, vídeo semanal/mensal, vencimento e mudança de anúncio) gerados/regenerados automaticamente.

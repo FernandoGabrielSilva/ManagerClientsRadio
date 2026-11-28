@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
+  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -133,6 +133,7 @@ model Client {
   contactEmail         String?
   contactRole          String?
   offeredMediaType     String?
+  videoFrequency       String          @default("weekly")
   videoWeekday         Int             @default(1)
   responsible          String?
   commercialStatus     String?

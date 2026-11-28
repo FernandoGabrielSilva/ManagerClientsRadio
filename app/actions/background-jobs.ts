@@ -164,12 +164,16 @@ function toNumberValue(v: any): number | null {
 function normImportText(v: unknown) { return String(v ?? "").trim().replace(/\s+/g, " ").toLowerCase(); }
 function normImportDate(v: unknown) { const d = toDateValue(v); return d ? d.toISOString().slice(0, 10) : ""; }
 function normImportNum(v: unknown) { const n = toNumberValue(v); return n == null ? "" : String(n); }
+function normalizeVideoFrequency(v: unknown) {
+  const value = String(v ?? "").trim().toLowerCase();
+  return value === "monthly" || value === "mensal" ? "monthly" : "weekly";
+}
 function clientImportKey(r: Record<string, any>) {
   const contractStatus = (["active","paused","ended","negotiation"].includes(String(r.contractStatus)) ? String(r.contractStatus) : "active");
-  return [normImportText(r.name ?? r["Cliente / anunciante"] ?? r.Nome ?? "Sem nome"), normImportText(r.responsible ?? r["Responsável"]), normImportText(r.contactName ?? r["Contato / decisor"] ?? r.Contato), normImportText(r.phone ?? r.WhatsApp ?? r.Telefone), normImportText(r.email ?? r.Email), normImportText(r.commercialStatus ?? r["Situação comercial"]), normImportNum(r.contractValue ?? r["Valor proposto (R$)"]), normImportDate(r.lastContactAt ?? r["Último contato"]), normImportText(r.contactType ?? r["Tipo de contato"]), normImportText(r.nextAction ?? r["Próxima ação"]), normImportDate(r.nextActionDate ?? r["Data próxima ação"]), normImportText(r.notes ?? r["Histórico / observações"] ?? r.Observações), normImportDate(r.dateConference ?? r["Conferência de datas"]), String(Math.max(0, Math.min(127, Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1) || 1))), String(Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? 14) || 14))), contractStatus].join("|");
+  return [normImportText(r.name ?? r["Cliente / anunciante"] ?? r.Nome ?? "Sem nome"), normImportText(r.responsible ?? r["Responsável"]), normImportText(r.contactName ?? r["Contato / decisor"] ?? r.Contato), normImportText(r.phone ?? r.WhatsApp ?? r.Telefone), normImportText(r.email ?? r.Email), normImportText(r.commercialStatus ?? r["Situação comercial"]), normImportNum(r.contractValue ?? r["Valor proposto (R$)"]), normImportDate(r.lastContactAt ?? r["Último contato"]), normImportText(r.contactType ?? r["Tipo de contato"]), normImportText(r.nextAction ?? r["Próxima ação"]), normImportDate(r.nextActionDate ?? r["Data próxima ação"]), normImportText(r.notes ?? r["Histórico / observações"] ?? r.Observações), normImportDate(r.dateConference ?? r["Conferência de datas"]), normalizeVideoFrequency(r.videoFrequency ?? r["Frequência Vídeo"]), String(Math.max(0, Math.min(127, Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1) || 1))), String(Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? 14) || 14))), contractStatus].join("|");
 }
 function existingClientKey(c: any) {
-  return [normImportText(c.name),normImportText(c.responsible),normImportText(c.contactName),normImportText(c.phone),normImportText(c.email),normImportText(c.commercialStatus),normImportNum(c.contractValue),normImportDate(c.lastContactAt),normImportText(c.contactType),normImportText(c.nextAction),normImportDate(c.nextActionDate),normImportText(c.notes),normImportDate(c.dateConference),String(Math.max(0,Math.min(127,Number(c.videoWeekday ?? 1)||1))),String(Math.max(1,Math.min(365,Number(c.contactFrequencyDays ?? 14)||14))),String(c.contractStatus ?? "active")].join("|");
+  return [normImportText(c.name),normImportText(c.responsible),normImportText(c.contactName),normImportText(c.phone),normImportText(c.email),normImportText(c.commercialStatus),normImportNum(c.contractValue),normImportDate(c.lastContactAt),normImportText(c.contactType),normImportText(c.nextAction),normImportDate(c.nextActionDate),normImportText(c.notes),normImportDate(c.dateConference),normalizeVideoFrequency(c.videoFrequency),String(Math.max(0,Math.min(127,Number(c.videoWeekday ?? 1)||1))),String(Math.max(1,Math.min(365,Number(c.contactFrequencyDays ?? 14)||14))),String(c.contractStatus ?? "active")].join("|");
 }
 function contractImportKey(r: Record<string, any>, clientId: string) {
   const mediaType = (["spot","sponsorship","testimonial","other"].includes(String(r.mediaType)) ? String(r.mediaType) : "spot");
@@ -206,6 +210,7 @@ async function runImportClients(jobId: string, userId: string, role: string | un
           nextActionDate: toDateValue(r.nextActionDate ?? r["Data próxima ação"]) ?? existingByName.nextActionDate,
           contractValue: toNumberValue(r.contractValue ?? r["Valor proposto (R$)"]) ?? existingByName.contractValue,
           lastContactAt: toDateValue(r.lastContactAt ?? r["Último contato"]) ?? existingByName.lastContactAt,
+          videoFrequency: normalizeVideoFrequency(r.videoFrequency ?? r["Frequência Vídeo"] ?? existingByName.videoFrequency),
         }});
         seen.add(key); count++;
         await markJobProgress(jobId, i + 1, safeRows.length, `Atualizando ${i + 1}/${safeRows.length}`);
@@ -216,6 +221,7 @@ async function runImportClients(jobId: string, userId: string, role: string | un
         phone: r.phone ?? r.WhatsApp ?? r.Telefone ?? null,
         email: r.email ?? r.Email ?? null,
         contactName: r.contactName ?? r["Contato / decisor"] ?? r.Contato ?? null,
+        videoFrequency: normalizeVideoFrequency(r.videoFrequency ?? r["Frequência Vídeo"]),
         videoWeekday: Math.max(0, Math.min(127, Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1) || 1)),
         contactFrequencyDays: Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? 14) || 14)),
         contractStatus: (["active","paused","ended","negotiation"].includes(String(r.contractStatus)) ? r.contractStatus : "active") as any,

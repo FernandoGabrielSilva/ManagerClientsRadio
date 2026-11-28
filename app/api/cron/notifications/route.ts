@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isContactOverdue, isContractExpiringSoon, isVideoDueToday } from "@/lib/date-utils";
+import { isContactOverdue, isContractExpiringSoon, isMonthlyVideoDueToday, isVideoDueToday } from "@/lib/date-utils";
 import { startOfDay } from "date-fns";
 
 export async function GET(req: Request) {
@@ -18,8 +18,11 @@ export async function GET(req: Request) {
     if (!user.notificationsEnabled) continue;
     const clients = await prisma.client.findMany({ where: { userId: user.id } });
     for (const c of clients) {
-      // vídeo hoje
-      if (isVideoDueToday(c.videoWeekday)) {
+      const monthlyVideo = c.videoFrequency === "monthly";
+      const videoDue = monthlyVideo
+        ? isMonthlyVideoDueToday(c.lastVideoSentAt)
+        : isVideoDueToday(c.videoWeekday);
+      if (videoDue) {
         const exists = await prisma.notification.findFirst({
           where: { userId: user.id, clientId: c.id, title: { contains: "Enviar vídeo" }, createdAt: { gte: today } },
         });
@@ -30,7 +33,7 @@ export async function GET(req: Request) {
               clientId: c.id,
               type: "info",
               title: `Enviar vídeo para ${c.name}`,
-              message: `Hoje é dia de enviar o vídeo semanal para ${c.name}.`,
+              message: `Hoje é dia de enviar o vídeo ${monthlyVideo ? "mensal" : "semanal"} para ${c.name}.`,
               link: `/clients/${c.id}`,
             },
           });

@@ -11,6 +11,7 @@ import {
   parseClients,
   parseContracts,
   parseEvents,
+  videoWeekdayFromValue,
 } from "@/lib/spreadsheet";
 
 async function getUser() {
@@ -69,6 +70,8 @@ async function runImportWorkbook(jobId: string, userId: string, sheets: SheetMat
         contactRole: client.contactRole,
         responsible: client.responsible,
         offeredMediaType: client.offeredMediaType,
+        videoFrequency: client.videoFrequency,
+        videoWeekday: videoWeekdayFromValue(client.videoWeekday),
         lastContactAt: client.lastContactAt,
         nextAction: client.nextAction,
         contactFrequencyDays: client.contactFrequencyDays,
@@ -85,7 +88,7 @@ async function runImportWorkbook(jobId: string, userId: string, sheets: SheetMat
         clientsUpdated++;
       } else {
         const created = await prisma.client.create({
-          data: { userId, vendorId: userId, videoWeekday: 0, ...data },
+          data: { userId, vendorId: userId, ...data },
         });
         clientMap.set(key, created);
         clientsCreated++;

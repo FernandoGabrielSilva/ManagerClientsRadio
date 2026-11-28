@@ -6,7 +6,7 @@ import { Bell as BellIcon } from "lucide-react";
 import { markNotificationReadAction, markAllNotificationsReadAction, clearNotificationsAction } from "@/app/actions/notifications";
 import { formatDate } from "@/lib/date-utils";
 import Link from "next/link";
-import type { Notification } from "@prisma/client";
+import type { Notification } from "@/generated/prisma/client";
 
 export default async function NotificationsPage() {
   const session = await auth();

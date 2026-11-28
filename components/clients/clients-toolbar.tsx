@@ -13,6 +13,7 @@ import { toast } from "@/components/ui/toast";
 import Link from "next/link";
 import { Plus, Users } from "lucide-react";
 import { formatDateBR, toDate } from "@/lib/spreadsheet";
+import { weekdayLabel } from "@/lib/date-utils";
 
 export function ClientsToolbar({ clients, exportClients, vendors, view = "active" }: { clients: Array<Record<string, unknown>>; exportClients?: Array<Record<string, unknown>>; vendors?: { id: string; name: string | null }[]; view?: string }) {
   const router = useRouter();
@@ -36,6 +37,8 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
     "Data Próximo Retorno (Auto)",
     "Situação Comercial",
     "Histórico de Contatos / Detalhes do PI",
+    "Frequência Vídeo",
+    "Dias Vídeo",
   ];
 
   function nextReturn(c: Record<string, unknown>) {
@@ -55,6 +58,7 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
       const exportData: Record<string, unknown>[] = [];
       for (const raw of source) {
         const c = raw as Record<string, unknown>;
+        const monthly = String(c.videoFrequency ?? "weekly") === "monthly";
         const row = [
           str(c.legalName ?? c.name),
           str(c.tradeName ?? c.name),
@@ -71,6 +75,8 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
           nextReturn(c),
           str(c.commercialStatus ?? c.contractStatus),
           str(c.notes),
+          monthly ? "Mensal" : "Semanal",
+          monthly ? "" : weekdayLabel(Number(c.videoWeekday ?? 0)),
         ];
         exportRows.push(row);
         const obj: Record<string, unknown> = {};
@@ -127,7 +133,7 @@ export function ClientsToolbar({ clients, exportClients, vendors, view = "active
           subtitle="Dados cadastrais e histórico comercial"
           headers={exportHeaders}
           getExportData={getExportData}
-          columnWidths={[30, 28, 20, 38, 20, 26, 24, 20, 20, 14, 24, 12, 16, 24, 50]}
+          columnWidths={[30, 28, 20, 38, 20, 26, 24, 20, 20, 14, 24, 12, 16, 24, 50, 14, 22]}
           loading={exporting}
         />
         <ExportPdfButton getData={async () => (await getExportData()).exportData} filename="clientes.pdf" columns={exportHeaders.map((h) => ({ header: h, dataKey: h }))} loading={exporting} />

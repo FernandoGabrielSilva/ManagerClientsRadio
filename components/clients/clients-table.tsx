@@ -16,7 +16,7 @@ import { Pencil, CheckCircle2 } from "lucide-react";
 import { resolveNextContact, isNextContactOverdue, formatDate, weekdayLabel } from "@/lib/date-utils";
 import { toast } from "@/components/ui/toast";
 import { archiveClientsAction, deleteClientsAction, restoreClientsAction, permanentDeleteClientsAction, markNextContactDoneAction } from "@/app/actions/clients";
-import type { Client } from "@prisma/client";
+import type { Client } from "@/generated/prisma/client";
 type ClientRow = Client & { vendor?: { name: string | null } | null };
 
 
@@ -252,7 +252,9 @@ export function ClientsTable({ clients, vendorList = [], view = "active" }: { cl
                     {c.nextActionDate && <span className="text-xs tabular-nums">{formatDate(c.nextActionDate)}</span>}
                   </div>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{weekdayLabel(c.videoWeekday)}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {c.videoFrequency === "monthly" ? "Mensal" : weekdayLabel(c.videoWeekday)}
+                </TableCell>
                 <TableCell className="text-muted-foreground tabular-nums">{formatDate(c.lastContactAt)}</TableCell>
                 <TableCell
                   className="text-right tabular-nums"

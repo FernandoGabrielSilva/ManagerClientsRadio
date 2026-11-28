@@ -1,4 +1,5 @@
 import type { StyledSheetSpec } from "@/lib/export-excel";
+import { weekdayLabel } from "@/lib/date-utils";
 import {
   CALENDAR_HEADERS,
   CLIENT_HEADERS,
@@ -14,6 +15,7 @@ import {
   renewalAlert,
   toDate,
   todayUtc,
+  videoFrequencyFromValue,
   visualContractStatus,
   weekdayName,
   weekOfMonthLabel,
@@ -31,6 +33,8 @@ type ClientLike = {
   contactRole?: string | null;
   responsible?: string | null;
   offeredMediaType?: string | null;
+  videoFrequency?: string | null;
+  videoWeekday?: number | null;
   lastContactAt?: string | null;
   nextAction?: string | null;
   contactFrequencyDays?: number | null;
@@ -41,6 +45,10 @@ type ClientLike = {
   notes?: string | null;
   contractStatus?: string | null;
 };
+
+function clientVideoFrequency(client: ClientLike): "weekly" | "monthly" {
+  return videoFrequencyFromValue(client.videoFrequency);
+}
 
 type ContractLike = {
   number?: string | null;
@@ -198,6 +206,8 @@ export function buildWorkbookSheets(data: WorkbookData): StyledSheetSpec[] {
     nextReturn(client),
     client.commercialStatus ?? client.contractStatus ?? "",
     client.notes ?? "",
+    clientVideoFrequency(client) === "monthly" ? "Mensal" : "Semanal",
+    clientVideoFrequency(client) === "monthly" ? "" : weekdayLabel(client.videoWeekday ?? 1),
   ]);
 
   const contractRows = data.contracts.map((contract) => {
@@ -287,7 +297,7 @@ export function buildWorkbookSheets(data: WorkbookData): StyledSheetSpec[] {
       subtitle: generated,
       headers: CLIENT_HEADERS,
       rows: clientRows,
-      columnWidths: [30, 24, 20, 28, 22, 24, 22, 18, 18, 16, 26, 15, 18, 18, 56],
+      columnWidths: [30, 24, 20, 28, 22, 24, 22, 18, 18, 16, 26, 15, 18, 18, 56, 14, 22],
     },
     {
       sheetName: SHEET_LABELS.contracts,

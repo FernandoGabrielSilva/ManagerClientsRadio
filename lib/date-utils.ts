@@ -73,6 +73,34 @@ export function isVideoDueToday(weekday: number, now = new Date()): boolean {
   return (weekday & (1 << getDay(now))) !== 0;
 }
 
+export function nextMonthlyVideoDate(lastVideoSentAt: Date | null, now = new Date()): Date {
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  if (!lastVideoSentAt) return today;
+
+  const last = new Date(lastVideoSentAt);
+  const year = last.getUTCFullYear() + (last.getUTCMonth() === 11 ? 1 : 0);
+  const month = last.getUTCMonth() === 11 ? 0 : last.getUTCMonth() + 1;
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const day = Math.min(last.getUTCDate(), daysInMonth);
+  const due = new Date(Date.UTC(year, month, day));
+  return due > today ? due : today;
+}
+
+export function isMonthlyVideoDueToday(lastVideoSentAt: Date | null, now = new Date()): boolean {
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return nextMonthlyVideoDate(lastVideoSentAt, now).getTime() === today.getTime();
+}
+
+export function isVideoDueForFrequency(
+  frequency: string | null | undefined,
+  weekday: number,
+  lastVideoSentAt: Date | null,
+  now = new Date(),
+): boolean {
+  if (frequency === "monthly") return isMonthlyVideoDueToday(lastVideoSentAt, now);
+  return isVideoDueToday(weekday, now);
+}
+
 export function weekdayLabel(weekday: number): string {
   const days = WEEKDAYS.filter((_, i) => (weekday & (1 << i)) !== 0);
   return days.length ? days.join(", ") : "—";

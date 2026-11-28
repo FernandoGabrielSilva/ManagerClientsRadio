@@ -50,6 +50,8 @@ export const CLIENT_HEADERS = [
   "Data Próximo Retorno (Auto)",
   "Situação Comercial",
   "Histórico de Contatos / Detalhes do PI",
+  "Frequência Vídeo",
+  "Dias Vídeo",
 ];
 
 export const PROSPECTION_HEADERS = [
@@ -364,6 +366,8 @@ export type ParsedClient = {
   contactRole: string | null;
   responsible: string | null;
   offeredMediaType: string | null;
+  videoFrequency: "weekly" | "monthly";
+  videoWeekday: number;
   lastContactAt: Date | null;
   nextAction: string | null;
   contactFrequencyDays: number;
@@ -414,6 +418,15 @@ export function deriveContractStatus(value: unknown): ClientContractStatus {
   return "negotiation";
 }
 
+export function videoFrequencyFromValue(value: unknown): "weekly" | "monthly" {
+  const normalized = normalizeHeader(value);
+  return normalized.includes("mensal") || normalized.includes("monthly") ? "monthly" : "weekly";
+}
+
+export function videoWeekdayFromValue(value: unknown): number {
+  return Math.max(0, Math.min(127, toInt(value) ?? 1));
+}
+
 function joinNotes(...values: (string | null)[]): string | null {
   const parts = values.filter((v): v is string => Boolean(v && v.trim()));
   if (parts.length === 0) return null;
@@ -444,6 +457,8 @@ function buildClientFromCadastro(row: Record<string, unknown>): ParsedClient | n
     contactRole: toText(cell(row, "Cargo / Setor")),
     responsible: toText(cell(row, "Vendedor / Representante")),
     offeredMediaType: null,
+    videoFrequency: videoFrequencyFromValue(cell(row, "Frequência Vídeo")),
+    videoWeekday: videoWeekdayFromValue(cell(row, "Dias Vídeo")),
     lastContactAt: toDate(cell(row, "Data Último Contato")),
     nextAction: toText(cell(row, "Próxima Ação")),
     contactFrequencyDays: toInt(cell(row, "Prazo Retorno (Dias)")) ?? 14,
@@ -472,6 +487,8 @@ function buildClientFromProspection(row: Record<string, unknown>): ParsedClient 
     contactRole: null,
     responsible: toText(cell(row, "Responsável", "Vendedor / Representante")),
     offeredMediaType: toText(cell(row, "Tipo de Mídia Ofertada")),
+    videoFrequency: videoFrequencyFromValue(cell(row, "Frequência Vídeo")),
+    videoWeekday: videoWeekdayFromValue(cell(row, "Dias Vídeo")),
     lastContactAt: toDate(cell(row, "Último Contato", "Data Último Contato")),
     nextAction: toText(cell(row, "Próxima Ação")),
     contactFrequencyDays: toInt(cell(row, "Prazo Retorno (Dias)")) ?? 14,
@@ -492,6 +509,8 @@ function mergeClients(cadastro: ParsedClient, prospection: ParsedClient | undefi
     contactName: cadastro.contactName ?? prospection.contactName,
     responsible: cadastro.responsible ?? prospection.responsible,
     offeredMediaType: cadastro.offeredMediaType ?? prospection.offeredMediaType,
+    videoFrequency: cadastro.videoFrequency,
+    videoWeekday: cadastro.videoWeekday,
     lastContactAt: latestDate(cadastro.lastContactAt, prospection.lastContactAt),
     nextAction: cadastro.nextAction ?? prospection.nextAction,
     nextActionDate: latestDate(cadastro.nextActionDate, prospection.nextActionDate),
@@ -519,6 +538,8 @@ function buildClientFromDashboard(row: Record<string, unknown>): ParsedClient | 
     contactRole: null,
     responsible: toText(cell(row, "Vendedor")),
     offeredMediaType: null,
+    videoFrequency: "weekly",
+    videoWeekday: 1,
     lastContactAt: null,
     nextAction: toText(cell(row, "Próxima Ação")),
     contactFrequencyDays: 14,

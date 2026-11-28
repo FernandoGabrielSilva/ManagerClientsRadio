@@ -71,6 +71,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
           contactEmail: client.contactEmail,
           contactRole: client.contactRole,
           offeredMediaType: client.offeredMediaType,
+          videoFrequency: client.videoFrequency ?? "weekly",
           videoWeekday: client.videoWeekday ?? 0,
           lastContactAt: client.lastContactAt ? new Date(client.lastContactAt).toISOString().slice(0, 10) : null,
           nextContactAt: client.nextContactAt
@@ -97,6 +98,7 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
         }
       : {
           name: "",
+          videoFrequency: "weekly",
           videoWeekday: 0,
           nextContactAt: null,
           contactFrequencyDays: 14,
@@ -111,6 +113,9 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
           dateConference: null,
         },
   });
+
+  const videoFrequency = watch("videoFrequency") ?? "weekly";
+  const videoWeekday = watch("videoWeekday") ?? 0;
 
   async function onSubmit(values: Values) {
     const res = client
@@ -231,35 +236,54 @@ export function ClientForm({ client, vendors, onSuccess }: { client?: any; vendo
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Dias do vídeo semanal</Label>
-            <Popover open={daysOpen} onOpenChange={setDaysOpen}>
-              <PopoverTrigger render={<Button type="button" variant="outline" className="w-full justify-between" />}>
-                {(watch("videoWeekday") ?? 0) === 0 ? "Selecione os dias" : weekdayLabel(watch("videoWeekday") ?? 0)}
-                <ChevronDown className="h-4 w-4 opacity-50" />
-              </PopoverTrigger>
-              <PopoverContent className="w-64 p-2" align="start">
-                <div className="space-y-1">
-                  {WEEKDAYS.map((d, i) => {
-                    const bit = 1 << i;
-                    const selected = ((watch("videoWeekday") ?? 0) & bit) !== 0;
-                    return (
-                      <label key={i} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-muted">
-                        <Checkbox
-                          checked={selected}
-                          onCheckedChange={() => {
-                            const cur = watch("videoWeekday") ?? 0;
-                            setValue("videoWeekday", selected ? cur & ~bit : cur | bit);
-                          }}
-                        />
-                        {d}
-                      </label>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
+          <div className="space-y-2">
+            <Label>Frequência do vídeo</Label>
+            <Select
+              value={videoFrequency}
+              onValueChange={(v: string | null) => setValue("videoFrequency", v === "monthly" ? "monthly" : "weekly")}
+            >
+              <SelectTrigger>
+                <SelectValue>
+                  {(v: string | null) => (v === "monthly" ? "Mensal" : "Semanal")}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Semanal</SelectItem>
+                <SelectItem value="monthly">Mensal</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          {videoFrequency === "weekly" && (
+            <div className="space-y-2 md:col-span-2">
+              <Label>Dias do vídeo semanal</Label>
+              <Popover open={daysOpen} onOpenChange={setDaysOpen}>
+                <PopoverTrigger render={<Button type="button" variant="outline" className="w-full justify-between" />}>
+                  {videoWeekday === 0 ? "Selecione os dias" : weekdayLabel(videoWeekday)}
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2" align="start">
+                  <div className="space-y-1">
+                    {WEEKDAYS.map((d, i) => {
+                      const bit = 1 << i;
+                      const selected = (videoWeekday & bit) !== 0;
+                      return (
+                        <label key={i} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-muted">
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={() => {
+                              const cur = videoWeekday;
+                              setValue("videoWeekday", selected ? cur & ~bit : cur | bit);
+                            }}
+                          />
+                          {d}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
         </div>
         <div className="space-y-2 pt-2">
           <Label className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Data do próximo contato</Label>

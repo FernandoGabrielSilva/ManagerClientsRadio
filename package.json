@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "rm -rf node_modules/.prisma/client && prisma generate && next build",
+    "build": "rm -rf generated/prisma && prisma generate && next build",
     "postbuild": "next-sitemap",
     "postinstall": "prisma generate",
     "start": "next start",

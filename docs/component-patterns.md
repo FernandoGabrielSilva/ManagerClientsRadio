@@ -68,6 +68,7 @@ Seleção em massa:
 - `Label` + `Input`/`Select`/`Textarea`/`Checkbox`/`Switch`.
 - Erro de campo: `text-sm text-destructive`.
 - Máscaras locais: moeda, telefone, CPF/CNPJ (em `client-form.tsx`).
+- Campos condicionais usam `watch` do React Hook Form; em `client-form.tsx`, `videoFrequency === "weekly"` controla a exibição dos dias do vídeo (`Select` + `Popover`/`Checkbox`).
 - Submit: “Salvando...” + `disabled`; cancelar `variant="outline"`.
 - Sucesso: `toast.add({ title: "Concluído" })`, fechar dialog, `router.refresh()`.
 - Erro: `toast.add({ title: "Erro", description: res.error })`.
@@ -122,6 +123,7 @@ Padrão-alvo (AlertDialog):
 - Lembretes e contratos lado a lado em `grid-cols-1 lg:grid-cols-2 gap-4`.
 - Calendário, agenda do dia e ações pendentes usam somente eventos persistidos (`Event`), carregados por `listEventsAction`; não existe mais lista derivada em memória no dashboard.
 - Eventos de cliente obrigatórios no calendário/agenda: `Último contato:`, `Próximo contato:` e `Próxima ação:` (título vindo de `nextAction` + cliente).
+- Eventos de vídeo respeitam `videoFrequency`: semanal usa a bitmask `videoWeekday`; mensal usa `lastVideoSentAt` como âncora (ou hoje, se nunca enviado).
 - Eventos gerados a partir de clientes têm prefixos estáveis em `lib/client-events.ts`; alterações em cliente regeram eventos via `ensureClientContactEventsForUser` e atualizam o dashboard pelo `syncKey`.
 - Ações pendentes exibem os eventos de hoje com link para o cliente; eventos automáticos não têm botão de exclusão (a origem é o cadastro do cliente).
 - Exclusão de evento personalizado usa `AlertDialog` + `router.refresh()`.
@@ -142,6 +144,7 @@ Padrão-alvo (AlertDialog):
 - Um único import usa as tabelas visíveis de `DASHBOARD & LEMBRETES` como fonte: visitas viram Clientes, alertas de renovação viram Contratos e `CALENDÁRIO DE VISITAS` vira Agenda.
 - As abas `CADASTRO DE CLIENTES`, `PROSPECÇÃO E VISITAS` e `CONTROLE DE CONTRATOS` são detalhamento/exportação; só são usadas como fallback se o dashboard não trouxer linhas.
 - Contratos sem cliente cadastrado criam cliente mínimo apenas para manter o vínculo.
+- `CADASTRO DE CLIENTES` inclui `Frequência Vídeo` (`Semanal`/`Mensal`) e `Dias Vídeo` (somente semanal), sempre ao final para não deslocar colunas existentes.
 - Não criar exportador próprio por página; reutilizar o serviço global.
 
 ## Navegação e layout

@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { clientSchema } from "@/lib/validators";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -32,6 +32,7 @@ export async function createClientAction(data: z.infer<typeof clientSchema>) {
       contactEmail: d.contactEmail || null,
       contactRole: d.contactRole ?? null,
       offeredMediaType: d.offeredMediaType ?? null,
+      videoFrequency: d.videoFrequency,
       videoWeekday: d.videoWeekday,
       lastContactAt: d.lastContactAt ? new Date(d.lastContactAt) : null,
       nextContactAt: d.nextContactAt ? new Date(d.nextContactAt) : null,
@@ -81,6 +82,7 @@ export async function updateClientAction(id: string, data: z.infer<typeof client
       contactEmail: d.contactEmail || null,
       contactRole: d.contactRole ?? null,
       offeredMediaType: d.offeredMediaType ?? null,
+      videoFrequency: d.videoFrequency,
       videoWeekday: d.videoWeekday,
       lastContactAt: d.lastContactAt ? new Date(d.lastContactAt) : null,
       nextContactAt: d.nextContactAt ? new Date(d.nextContactAt) : null,
@@ -311,6 +313,7 @@ export async function getAllClientsForExportAction() {
     contactFrequencyDays: c.contactFrequencyDays,
     notes: c.notes,
     dateConference: c.dateConference?.toISOString() ?? null,
+    videoFrequency: c.videoFrequency ?? "weekly",
     videoWeekday: c.videoWeekday,
     contractStatus: c.contractStatus,
   }));
@@ -319,6 +322,10 @@ export async function getAllClientsForExportAction() {
 function normImportText(v: unknown) { return String(v ?? "").trim().replace(/\s+/g, " ").toLowerCase(); }
 function normImportDate(v: unknown) { const d = toDateValue(v); return d ? d.toISOString().slice(0, 10) : ""; }
 function normImportNum(v: unknown) { const n = toNumberValue(v); return n == null ? "" : String(n); }
+function normalizeVideoFrequency(v: unknown) {
+  const value = String(v ?? "").trim().toLowerCase();
+  return value === "monthly" || value === "mensal" ? "monthly" : "weekly";
+}
 
 function clientImportKey(r: Record<string, any>) {
   const contractStatus = (["active", "paused", "ended", "negotiation"].includes(String(r.contractStatus)) ? String(r.contractStatus) : "active");
@@ -336,6 +343,7 @@ function clientImportKey(r: Record<string, any>) {
     normImportDate(r.nextActionDate ?? r["Data próxima ação"]),
     normImportText(r.notes ?? r["Histórico / observações"] ?? r.Observações),
     normImportDate(r.dateConference ?? r["Conferência de datas"]),
+    normalizeVideoFrequency(r.videoFrequency ?? r["Frequência Vídeo"]),
     String(Math.max(0, Math.min(127, Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1) || 1))),
     String(Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? 14) || 14))),
     contractStatus,
@@ -357,6 +365,7 @@ function existingClientKey(c: any) {
     normImportDate(c.nextActionDate),
     normImportText(c.notes),
     normImportDate(c.dateConference),
+    normalizeVideoFrequency(c.videoFrequency),
     String(Math.max(0, Math.min(127, Number(c.videoWeekday ?? 1) || 1))),
     String(Math.max(1, Math.min(365, Number(c.contactFrequencyDays ?? 14) || 14))),
     String(c.contractStatus ?? "active"),
@@ -392,6 +401,7 @@ export async function importClientsAction(rows: any[]) {
         contactName: r.contactName ?? r["Contato Responsável"] ?? r["Contato / decisor"] ?? r.Contato ?? null,
         contactRole: r.contactRole ?? r["Cargo / Setor"] ?? null,
         offeredMediaType: r.offeredMediaType ?? r["Tipo de Mídia Ofertada"] ?? null,
+        videoFrequency: normalizeVideoFrequency(r.videoFrequency ?? r["Frequência Vídeo"]),
         videoWeekday: Math.max(0, Math.min(127, Number(r.videoWeekday ?? r["Dias Vídeo"] ?? 1) || 1)),
         contactFrequencyDays: Math.max(1, Math.min(365, Number(r.contactFrequencyDays ?? r["Prazo Retorno (Dias)"] ?? 14) || 14)),
         contractStatus: (["active","paused","ended","negotiation"].includes(String(r.contractStatus)) ? r.contractStatus : "active") as any,

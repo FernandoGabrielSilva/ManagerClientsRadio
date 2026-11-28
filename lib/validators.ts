@@ -25,6 +25,7 @@ export const clientSchema = z.object({
   contactEmail: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
   contactRole: z.string().optional().nullable(),
   offeredMediaType: z.string().optional().nullable(),
+  videoFrequency: z.enum(["weekly", "monthly"]),
   videoWeekday: z.number().int().min(0).max(127),
   lastContactAt: z.string().optional().nullable(),
   nextContactAt: z.string().optional().nullable(),
